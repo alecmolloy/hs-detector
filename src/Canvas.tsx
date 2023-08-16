@@ -1,6 +1,8 @@
 import React from 'react'
 
-type CanvasProps = React.HTMLProps<HTMLCanvasElement> & {}
+type CanvasProps = React.HTMLProps<HTMLCanvasElement> & {
+  doesVideoNeedToBeMirrored: boolean
+}
 
 function isMutableRefObject<T extends HTMLElement>(
   ref: React.ForwardedRef<T>,
@@ -13,7 +15,7 @@ function isMutableRefObject<T extends HTMLElement>(
 }
 
 export const Canvas = React.forwardRef<HTMLCanvasElement, CanvasProps>(
-  ({ ...props }, ref) => {
+  ({ doesVideoNeedToBeMirrored, ...props }, ref) => {
     if (!isMutableRefObject(ref)) {
       throw new Error('Improper ref passed to <Canvas /> component')
     }
@@ -23,11 +25,13 @@ export const Canvas = React.forwardRef<HTMLCanvasElement, CanvasProps>(
         {...props}
         ref={ref}
         style={{
-          zIndex: 1,
           position: 'absolute',
           top: '50%',
           left: '50%',
-          transform: 'translate(-50%, -50%)',
+          transform: [
+            'translate(-50%, -50%)',
+            doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
+          ].join(' '),
         }}
       />
     )

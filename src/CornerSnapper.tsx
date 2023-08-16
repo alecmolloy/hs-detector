@@ -2,7 +2,11 @@ import { animated, useSpring } from '@react-spring/web'
 import { useDrag, rubberbandIfOutOfBounds } from '@use-gesture/react'
 import React from 'react'
 
-interface CornerSnapperProps {
+interface CornerSnapperProps
+  extends React.DetailedHTMLProps<
+    React.HTMLAttributes<HTMLDivElement>,
+    HTMLDivElement
+  > {
   sourcePreviewWidth: number
   sourcePreviewHeight: number
   parentWidth: number
@@ -18,22 +22,26 @@ export const CornerSnapper: React.FC<
   sourcePreviewHeight,
   parentWidth,
   parentHeight,
+  style,
   children,
 }) => {
   // Define the corner positions
   const corners = React.useMemo(
-    () => [
-      { x: cornerPadding, y: cornerPadding },
-      { x: parentWidth - sourcePreviewWidth - cornerPadding, y: cornerPadding },
-      {
+    () => ({
+      tl: { x: cornerPadding, y: cornerPadding },
+      tr: {
+        x: parentWidth - sourcePreviewWidth - cornerPadding,
+        y: cornerPadding,
+      },
+      bl: {
         x: cornerPadding,
         y: parentHeight - sourcePreviewHeight - cornerPadding,
       },
-      {
+      br: {
         x: parentWidth - sourcePreviewWidth - cornerPadding,
         y: parentHeight - sourcePreviewHeight - cornerPadding,
       },
-    ],
+    }),
     [parentHeight, parentWidth, sourcePreviewHeight, sourcePreviewWidth],
   )
 
@@ -48,7 +56,12 @@ export const CornerSnapper: React.FC<
 
   const goToClosestCorner = React.useCallback(
     (mx: number, my: number, immediate: boolean) => {
-      const closestCorner = corners.reduce((prev, curr) =>
+      const closestCorner = [
+        corners.tl,
+        corners.tr,
+        corners.bl,
+        corners.br,
+      ].reduce((prev, curr) =>
         Math.hypot(spring.x.get() + mx - curr.x, spring.y.get() + my - curr.y) <
         Math.hypot(spring.x.get() + mx - prev.x, spring.y.get() + my - prev.y)
           ? curr
@@ -71,8 +84,8 @@ export const CornerSnapper: React.FC<
 
       // Apply the drag offset to the current position
       api.set({
-        x: rubberbandIfOutOfBounds(targetX, corners[0].x, corners[1].x),
-        y: rubberbandIfOutOfBounds(targetY, corners[0].y, corners[2].y),
+        x: rubberbandIfOutOfBounds(targetX, corners.tl.x, corners.tr.x),
+        y: rubberbandIfOutOfBounds(targetY, corners.tl.y, corners.bl.y),
       })
     } else if (last) {
       goToClosestCorner(mx, my, false)
@@ -96,12 +109,8 @@ export const CornerSnapper: React.FC<
       style={{
         ...spring,
         position: 'absolute',
-        borderRadius: 10,
-        boxShadow: '0 0 10px #0004',
-        overflow: 'hidden',
-        display: 'flex',
-        zIndex: 2,
         touchAction: 'none',
+        ...style,
       }}
     >
       {children}
