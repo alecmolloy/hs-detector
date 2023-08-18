@@ -1,28 +1,25 @@
 import React from 'react'
+import { useAppState } from './state'
 
-interface DebugBoxProps {
-  debugOverrideHandstandState: boolean
-  setDebugOverrideHandstandState: React.Dispatch<React.SetStateAction<boolean>>
-  debugWireframes: boolean
-  setDebugWireframes: React.Dispatch<React.SetStateAction<boolean>>
-}
+interface DebugBoxProps {}
 
-export const DebugBox: React.FC<React.PropsWithChildren<DebugBoxProps>> = ({
-  debugOverrideHandstandState,
-  setDebugOverrideHandstandState,
-  debugWireframes,
-  setDebugWireframes,
-}) => {
+export const DebugBox: React.FC<
+  React.PropsWithChildren<DebugBoxProps>
+> = () => {
+  const debugWireframes = useAppState((s) => s.debugWireframes)
+  const debugOverrideHandstandState = useAppState(
+    (s) => s.debugOverrideHandstandState,
+  )
+
   return (
     <div
       style={{
-        width: '80%',
-        height: 40,
+        boxSizing: 'border-box',
+        width: '100%',
         backgroundColor: 'white',
         borderBottomLeftRadius: 10,
         borderBottomRightRadius: 10,
-        paddingLeft: 4,
-        paddingRight: 4,
+        padding: 8,
         boxShadow: '0 0 10px #0004',
         fontSize: 8,
         fontWeight: 600,
@@ -37,7 +34,9 @@ export const DebugBox: React.FC<React.PropsWithChildren<DebugBoxProps>> = ({
           style={{ width: 8, height: 8, marginRight: 4 }}
           checked={debugOverrideHandstandState}
           onChange={() => {
-            setDebugOverrideHandstandState((v) => !v)
+            useAppState.setState((s) => ({
+              debugOverrideHandstandState: !s.debugOverrideHandstandState,
+            }))
           }}
         />{' '}
         Handstanding
@@ -48,7 +47,9 @@ export const DebugBox: React.FC<React.PropsWithChildren<DebugBoxProps>> = ({
           style={{ width: 8, height: 8, marginRight: 4 }}
           checked={debugWireframes}
           onChange={() => {
-            setDebugWireframes((v) => !v)
+            useAppState.setState((s) => ({
+              debugWireframes: !s.debugWireframes,
+            }))
           }}
         />{' '}
         Wireframes

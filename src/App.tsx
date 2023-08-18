@@ -10,199 +10,54 @@ import { useDropzone } from 'react-dropzone'
 import { Canvas } from './Canvas'
 import { CornerSnapper } from './CornerSnapper'
 import { DebugBox } from './DebugBox'
-import { HandstandDetectedAlerts } from './HandstandDetectedAlerts'
-import {
-  drawSkeleton,
-  getCanvasDimensions,
-  getCanvasSkeletonScaleFactorFromSource,
-  isPoseAHandstand,
-} from './utils'
+import { drawFrame } from './drawFrame'
+import { useAppState } from './state'
+import { getCanvasDimensions } from './utils'
+import { RecordingLabel } from './RecordingLabel'
 
 navigator.mediaDevices.getUserMedia({
   video: true,
 })
 
-const DebugMode = true
-
-interface Dimensions {
-  width: number
-  height: number
-}
+export const DebugMode: boolean = false
 
 const App = () => {
-  const thumbnailVideoRef = React.useRef<HTMLVideoElement | null>(null)
-  const backgroundVideoRef = React.useRef<HTMLVideoElement | null>(null)
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null)
+  const thumbnailVideoRef = React.useRef<HTMLVideoElement>(null)
+  const backgroundVideoRef = React.useRef<HTMLVideoElement>(null)
+  const canvasRef = React.useRef<HTMLCanvasElement>(null)
+  const replayVideoRef = React.useRef<HTMLVideoElement>(null)
 
-  const [tfReadyStatus, setTFReadyStatus] = React.useState<
-    null | 'ready' | 'loading'
-  >(null)
-  const [model, setModel] = React.useState<posedetection.PoseDetector | null>(
-    null,
-  )
-
-  const [recordingStatus, setRecordingStatus] = React.useState<
-    | null
-    | 'passive-recording'
-    | 'possible-start'
-    | 'middle'
-    | 'possible-end'
-    | 'preparing-replay'
-  >(null)
-  const [recorderStart, setRecorderStart] = React.useState<number | null>(null)
-
-  const [screenDimensions, setScreenDimensions] = React.useState<Dimensions>({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  })
-  const [canvasDimensions, setCanvasDimensions] = React.useState<Dimensions>({
-    width: 0,
-    height: 0,
-  })
-  const [sourceDimensions, setSourceDimensions] = React.useState<Dimensions>({
-    width: 640,
-    height: 480,
-  })
-
-  const [handstandStart, setHandstandStart] = React.useState<number | null>(
-    null,
-  )
-  const [handstandEnd, setHandstandEnd] = React.useState<number | null>(null)
-  const [videoSrcObject, setVideoSrcObject] =
-    React.useState<MediaProvider | null>(null)
-
-  const [mediaRecorder, setMediaRecorder] =
-    React.useState<MediaRecorder | null>(null)
-
-  const [replayVideoURLs, setReplayVideoURLs] = React.useState<Array<string>>(
+  const scratchRef = React.useRef(useAppState.getState())
+  React.useEffect(
+    () => useAppState.subscribe((state) => (scratchRef.current = state)),
     [],
   )
-  const [currentReplayURLIndex, setCurrentReplayURLIndex] = React.useState<
-    number | null
-  >(null)
 
-  const chunks = React.useRef<Array<BlobPart>>([])
-  const chunkTimestamps = React.useRef<Array<number>>([])
+  const tfReadyStatus = useAppState((s) => s.tfReadyStatus)
 
-  const [debugWireframes, setDebugWireframes] = React.useState<boolean>(false)
-  const [debugOverrideHandstandState, setDebugOverrideHandstandState] =
-    React.useState<boolean>(false)
+  const model = useAppState((s) => s.model)
+
+  const recordingStatus = useAppState((s) => s.recordingStatus)
+
+  const screenDimensions = useAppState((s) => s.screenDimensions)
+  const canvasDimensions = useAppState((s) => s.canvasDimensions)
+  const sourceDimensions = useAppState((s) => s.sourceDimensions)
+
+  const handstandStart = useAppState((s) => s.handstandStart)
+  const videoSrcObject = useAppState((s) => s.videoSrcObject)
+
+  const mediaRecorder = useAppState((s) => s.mediaRecorder)
+
+  const replayVideoURLs = useAppState((s) => s.replayVideoURLs)
+  const replayVideoStarts = useAppState((s) => s.replayVideoStartOffets)
+  const currentReplayIndex = useAppState((s) => s.currentReplayIndex)
+
+  const previewCorner = useAppState((s) => s.previewCorner)
+
+  const addChunk = useAppState((s) => s.addChunk)
 
   // const doesVideoNeedToBeMirrored = videoSrcObject instanceof MediaStream
   const doesVideoNeedToBeMirrored = false
-
-  const drawFrame = React.useCallback(
-    async (
-      videoElement: HTMLVideoElement,
-      canvasElement: HTMLCanvasElement,
-      model: posedetection.PoseDetector,
-    ) => {
-      if (
-        videoElement != null &&
-        canvasElement != null &&
-        videoElement.videoWidth !== 0 &&
-        videoElement.videoHeight !== 0
-      ) {
-        const canvasCtx = canvasElement.getContext('2d')
-        if (canvasCtx == null) {
-          throw new Error('Canvas Context not available')
-        }
-        const poses = await model.estimatePoses(videoElement)
-        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height)
-        canvasCtx.drawImage(
-          videoElement,
-          0,
-          0,
-          canvasElement.width,
-          canvasElement.height,
-        )
-
-        const pose: posedetection.Pose | undefined = poses[0]
-        if (debugWireframes && pose != null) {
-          drawSkeleton(
-            pose,
-            canvasCtx,
-            getCanvasSkeletonScaleFactorFromSource(videoElement, canvasElement),
-          )
-        }
-
-        const poseIsHandstanding =
-          pose != null
-            ? DebugMode
-              ? debugOverrideHandstandState
-              : isPoseAHandstand(pose)
-            : false
-        switch (recordingStatus) {
-          case 'passive-recording': {
-            if (poseIsHandstanding || debugOverrideHandstandState) {
-              setHandstandStart(Date.now())
-              setRecordingStatus('possible-start')
-            }
-            break
-          }
-          case 'possible-start': {
-            if (handstandStart == null) {
-              throw new Error(
-                `Internal Error: 'handstandStart' should have a value, but was not found.`,
-              )
-            }
-            if (Date.now() > handstandStart + 1000) {
-              setRecordingStatus('middle')
-            }
-            break
-          }
-          case 'middle': {
-            if (
-              pose == null ||
-              poseIsHandstanding === false ||
-              (DebugMode && debugOverrideHandstandState === false)
-            ) {
-              setHandstandEnd(Date.now())
-              setRecordingStatus('possible-end')
-            }
-            break
-          }
-          case 'possible-end': {
-            if (handstandEnd == null) {
-              throw new Error(
-                `Internal Error: 'handstandEnd' should have a value, but was not found.`,
-              )
-            }
-            if (Date.now() > handstandEnd + 1000) {
-              setReplayVideoURLs((v) => {
-                if (mediaRecorder == null) {
-                  throw new Error(`MediaRecorder not found`)
-                }
-                const blob = new Blob([...chunks.current], {
-                  type: 'video/mp4',
-                })
-                const newReplayVideoURLs = [...v, URL.createObjectURL(blob)]
-
-                setHandstandStart(null)
-                setHandstandEnd(null)
-                setRecordingStatus('passive-recording')
-                setCurrentReplayURLIndex(v.length)
-
-                mediaRecorder.stop()
-                chunks.current = []
-                chunkTimestamps.current = []
-                mediaRecorder.start()
-                return newReplayVideoURLs
-              })
-            }
-            break
-          }
-        }
-      }
-    },
-    [
-      debugOverrideHandstandState,
-      debugWireframes,
-      handstandEnd,
-      handstandStart,
-      recordingStatus,
-    ],
-  )
 
   React.useEffect(() => {
     ;(async () => {
@@ -213,7 +68,7 @@ const App = () => {
             video: true,
           })
           .then((source) => {
-            setVideoSrcObject(source)
+            useAppState.setState({ videoSrcObject: source })
           })
           .catch(() => {
             throw new Error("Can't get webcam video.")
@@ -227,25 +82,29 @@ const App = () => {
       const newMediaRecorder = new MediaRecorder(videoSrcObject, {
         mimeType: 'video/mp4',
       })
-      newMediaRecorder.start(200)
-      setRecorderStart(Date.now())
-      setMediaRecorder(newMediaRecorder)
-      setRecordingStatus('passive-recording')
+      newMediaRecorder.start()
+      useAppState.setState({
+        recordingStart: Date.now(),
+        mediaRecorder: newMediaRecorder,
+        recordingStatus: 'passive-recording',
+      })
     }
   }, [mediaRecorder, recordingStatus, videoSrcObject])
 
   React.useEffect(() => {
-    if (mediaRecorder !== null) {
-      const onDataAvailable = (e: BlobEvent) => {
-        chunks.current.push(e.data)
-        chunkTimestamps.current.push(e.timeStamp)
+    if (mediaRecorder instanceof MediaRecorder) {
+      const onDataAvailable = (e: BlobEvent) => addChunk(e.data)
+      mediaRecorder.addEventListener('dataavailable', onDataAvailable)
+
+      const onStop = () => {
+        useAppState.getState().prepareReplay()
       }
-      mediaRecorder.ondataavailable = onDataAvailable
+      mediaRecorder.addEventListener('stop', onStop)
       return () => {
         mediaRecorder.removeEventListener('dataavailable', onDataAvailable)
       }
     }
-  }, [mediaRecorder, recorderStart, recordingStatus])
+  }, [addChunk, mediaRecorder])
 
   React.useEffect(() => {
     if (
@@ -266,10 +125,14 @@ const App = () => {
           modelType: 'lite',
         })
         .then((newModel) => {
-          setTFReadyStatus('loading')
-          setModel(newModel)
+          useAppState.setState({
+            tfReadyStatus: 'loading',
+            model: newModel,
+          })
           newModel.estimatePoses(thumbnailVideoElement).then(() => {
-            setTFReadyStatus('ready')
+            useAppState.setState({
+              tfReadyStatus: 'ready',
+            })
           })
         })
         .catch(() => {
@@ -294,7 +157,7 @@ const App = () => {
         window.cancelAnimationFrame(rafId)
       }
     }
-  }, [drawFrame, model])
+  }, [model])
 
   // Use the webcam footage if it is set up
   React.useEffect(() => {
@@ -324,11 +187,13 @@ const App = () => {
 
   React.useEffect(() => {
     const resize = () => {
-      setScreenDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight,
+      useAppState.setState({
+        screenDimensions: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        },
+        canvasDimensions: getCanvasDimensions(sourceAspectRatio),
       })
-      setCanvasDimensions(getCanvasDimensions(sourceAspectRatio))
     }
     window.addEventListener('resize', resize)
     resize() // Call resize once to set initial size
@@ -338,12 +203,16 @@ const App = () => {
   React.useEffect(() => {
     if (thumbnailVideoRef.current != null) {
       thumbnailVideoRef.current.addEventListener(
-        'loadedmetadata',
-        function () {
-          setSourceDimensions({
-            width: this.videoWidth,
-            height: this.videoHeight,
-          })
+        'loaded',
+        () => {
+          if (thumbnailVideoRef.current != null) {
+            useAppState.setState({
+              sourceDimensions: {
+                width: thumbnailVideoRef.current.width,
+                height: thumbnailVideoRef.current.height,
+              },
+            })
+          }
         },
         false,
       )
@@ -351,7 +220,29 @@ const App = () => {
   }, [])
 
   const onDrop = React.useCallback((acceptedFiles: Array<File>) => {
-    setVideoSrcObject(acceptedFiles[0])
+    useAppState.setState({
+      videoSrcObject: acceptedFiles[0],
+    })
+  }, [])
+
+  const startFromOffset = React.useCallback(() => {
+    if (currentReplayIndex == null || replayVideoStarts.length === 0) {
+      throw new Error(
+        `currentReplayIndex must not be null, and replayVideoStarts must have content`,
+      )
+    }
+
+    const replayVideo = replayVideoRef.current
+    if (replayVideo != null) {
+      const replayVideoStart = replayVideoStarts[currentReplayIndex]
+      console.log(replayVideo.currentTime, replayVideoStart / 1000)
+      replayVideo.currentTime = Math.max(0, replayVideoStart / 1000)
+      replayVideo.play()
+    }
+  }, [currentReplayIndex, replayVideoStarts])
+
+  const closeReplay = React.useCallback(() => {
+    useAppState.setState({ currentReplayIndex: null })
   }, [])
 
   const { getRootProps, isDragActive } = useDropzone({ onDrop, maxFiles: 1 })
@@ -386,11 +277,8 @@ const App = () => {
         height={canvasDimensions.height}
         doesVideoNeedToBeMirrored={doesVideoNeedToBeMirrored}
       />
-      {currentReplayURLIndex && (
-        <video
-          id='replay'
-          width={canvasDimensions.width}
-          height={canvasDimensions.height}
+      {currentReplayIndex !== null && (
+        <div
           style={{
             position: 'absolute',
             top: '50%',
@@ -400,13 +288,57 @@ const App = () => {
               doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
             ].join(' '),
           }}
-          src={replayVideoURLs[currentReplayURLIndex]}
-          autoPlay
-          loop
-          controls
-        />
+        >
+          <video
+            ref={replayVideoRef}
+            id='replay'
+            width={canvasDimensions.width}
+            height={canvasDimensions.height}
+            style={{}}
+            src={replayVideoURLs[currentReplayIndex]}
+            onLoadedMetadata={startFromOffset}
+            onEnded={startFromOffset}
+            controls={false}
+          />
+          <div
+            style={{
+              color: 'white',
+              fontWeight: 600,
+              fontSize: 32,
+              position: 'absolute',
+              top: 4,
+              ...(previewCorner === 'tl' || previewCorner === 'bl'
+                ? { right: 4 }
+                : { left: 4 }),
+              width: 40,
+              height: 40,
+              textAlign: 'center',
+              userSelect: 'none',
+              cursor: 'pointer',
+              textShadow: '0 0 4px #0004',
+            }}
+            onClick={closeReplay}
+          >
+            ×
+          </div>
+          <img
+            src='./instant-replay.svg'
+            alt='Instant Replay®'
+            style={{
+              width: '35%',
+              color: '#fffa',
+              fontSize: 30,
+              fontStyle: 'italic',
+              position: 'absolute',
+              fontWeight: 800,
+              bottom: 8,
+              ...(previewCorner === 'tl' || previewCorner === 'bl'
+                ? { right: 8 }
+                : { left: 8 }),
+            }}
+          />
+        </div>
       )}
-      <HandstandDetectedAlerts isHandstanding={handstandStart != null} />
       {tfReadyStatus !== 'ready' && (
         <progress
           style={{
@@ -448,42 +380,40 @@ const App = () => {
         ></div>
       )}
       <CornerSnapper
-        sourcePreviewWidth={thumbnailWidth}
-        sourcePreviewHeight={thumbnailHeight}
         parentWidth={screenDimensions.width}
         parentHeight={screenDimensions.height}
         style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          overflow: 'hidden',
+          borderRadius: 10,
+          boxShadow: '0 0 10px #0004',
         }}
       >
-        <video
+        <div
           style={{
+            display: 'flex',
             pointerEvents: 'none',
-            transform: doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
             backgroundColor: 'rgba(0, 0, 0, 0.25)',
             WebkitBackdropFilter: 'blur(10px)',
-            borderRadius: 10,
-            boxShadow: '0 0 10px #0004',
-            overflow: 'hidden',
           }}
-          width={thumbnailWidth}
-          height={thumbnailHeight}
-          muted
-          controls={false}
-          autoPlay
-          loop
-          ref={thumbnailVideoRef}
-        />
-        {DebugMode && (
-          <DebugBox
-            debugOverrideHandstandState={debugOverrideHandstandState}
-            setDebugOverrideHandstandState={setDebugOverrideHandstandState}
-            debugWireframes={debugWireframes}
-            setDebugWireframes={setDebugWireframes}
+        >
+          <video
+            style={{
+              transform: doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
+            }}
+            width={thumbnailWidth}
+            height={thumbnailHeight}
+            muted
+            controls={false}
+            autoPlay
+            loop
+            ref={thumbnailVideoRef}
           />
-        )}
+          {handstandStart != null && <RecordingLabel />}
+        </div>
+        {DebugMode && <DebugBox />}
       </CornerSnapper>
     </div>
   )
