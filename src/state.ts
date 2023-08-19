@@ -31,9 +31,11 @@ interface State {
 interface Actions {
   prepareReplay: () => void
   addChunk: (chunk: BlobPart) => void
+  doesVideoNeedToBeMirrored: () => boolean
+  closeReplay: () => void
 }
 
-export const useAppState = create<State & Actions>()((set) => ({
+export const useAppState = create<State & Actions>()((set, get) => ({
   tfReadyStatus: null,
   model: null,
   recordingStatus: null,
@@ -58,8 +60,9 @@ export const useAppState = create<State & Actions>()((set) => ({
   replayVideoStartOffets: [],
   currentReplayIndex: null,
   chunks: [],
-  debugWireframes: true,
+  debugWireframes: false,
   debugOverrideHandstandState: false,
+  previewCorner: 'tl',
 
   prepareReplay: () =>
     set((state) => {
@@ -95,11 +98,12 @@ export const useAppState = create<State & Actions>()((set) => ({
         chunks: [],
       }
     }),
-  previewCorner: 'tl',
   addChunk: (chunk: BlobPart) =>
     set((state) => {
       return { chunks: [...state.chunks, chunk] }
     }),
+  doesVideoNeedToBeMirrored: () => get().videoSrcObject instanceof MediaStream,
+  closeReplay: () => set(() => ({ currentReplayIndex: null })),
 }))
 
 export interface Dimensions {

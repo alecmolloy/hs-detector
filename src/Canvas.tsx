@@ -1,17 +1,8 @@
 import React from 'react'
+import { isMutableRefObject } from './utils'
 
 type CanvasProps = React.HTMLProps<HTMLCanvasElement> & {
   doesVideoNeedToBeMirrored: boolean
-}
-
-function isMutableRefObject<T extends HTMLElement>(
-  ref: React.ForwardedRef<T>,
-): ref is React.MutableRefObject<T> {
-  if (ref != null && Object.hasOwn(ref, 'current')) {
-    return true
-  } else {
-    return false
-  }
 }
 
 export const Canvas = React.forwardRef<HTMLCanvasElement, CanvasProps>(

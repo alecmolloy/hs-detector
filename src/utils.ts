@@ -131,3 +131,13 @@ export function getCanvasSkeletonScaleFactorFromSource(
 ): number {
   return canvasElement.width / videoElement.width
 }
+
+export function isMutableRefObject<T extends HTMLElement>(
+  ref: React.ForwardedRef<T>,
+): ref is React.MutableRefObject<T> {
+  if (ref != null && Object.hasOwn(ref, 'current')) {
+    return true
+  } else {
+    return false
+  }
+}

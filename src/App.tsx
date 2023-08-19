@@ -6,20 +6,21 @@
 import * as posedetection from '@tensorflow-models/pose-detection'
 import * as tf from '@tensorflow/tfjs'
 import React from 'react'
-import { useDropzone } from 'react-dropzone'
 import { Canvas } from './Canvas'
 import { CornerSnapper } from './CornerSnapper'
 import { DebugBox } from './DebugBox'
+import { FileDropzone } from './FileDropzone'
+import { RecordingLabel } from './RecordingLabel'
+import { ReplayPlayer } from './ReplayPlayer'
 import { drawFrame } from './drawFrame'
 import { useAppState } from './state'
 import { getCanvasDimensions } from './utils'
-import { RecordingLabel } from './RecordingLabel'
 
 navigator.mediaDevices.getUserMedia({
   video: true,
 })
 
-export const DebugMode: boolean = false
+export const DebugMode: boolean = true
 
 const App = () => {
   const thumbnailVideoRef = React.useRef<HTMLVideoElement>(null)
@@ -48,16 +49,11 @@ const App = () => {
 
   const mediaRecorder = useAppState((s) => s.mediaRecorder)
 
-  const replayVideoURLs = useAppState((s) => s.replayVideoURLs)
-  const replayVideoStarts = useAppState((s) => s.replayVideoStartOffets)
   const currentReplayIndex = useAppState((s) => s.currentReplayIndex)
-
-  const previewCorner = useAppState((s) => s.previewCorner)
 
   const addChunk = useAppState((s) => s.addChunk)
 
-  // const doesVideoNeedToBeMirrored = videoSrcObject instanceof MediaStream
-  const doesVideoNeedToBeMirrored = false
+  const doesVideoNeedToBeMirrored = useAppState().doesVideoNeedToBeMirrored()
 
   React.useEffect(() => {
     ;(async () => {
@@ -219,34 +215,6 @@ const App = () => {
     }
   }, [])
 
-  const onDrop = React.useCallback((acceptedFiles: Array<File>) => {
-    useAppState.setState({
-      videoSrcObject: acceptedFiles[0],
-    })
-  }, [])
-
-  const startFromOffset = React.useCallback(() => {
-    if (currentReplayIndex == null || replayVideoStarts.length === 0) {
-      throw new Error(
-        `currentReplayIndex must not be null, and replayVideoStarts must have content`,
-      )
-    }
-
-    const replayVideo = replayVideoRef.current
-    if (replayVideo != null) {
-      const replayVideoStart = replayVideoStarts[currentReplayIndex]
-      console.log(replayVideo.currentTime, replayVideoStart / 1000)
-      replayVideo.currentTime = Math.max(0, replayVideoStart / 1000)
-      replayVideo.play()
-    }
-  }, [currentReplayIndex, replayVideoStarts])
-
-  const closeReplay = React.useCallback(() => {
-    useAppState.setState({ currentReplayIndex: null })
-  }, [])
-
-  const { getRootProps, isDragActive } = useDropzone({ onDrop, maxFiles: 1 })
-
   return (
     <div
       style={{
@@ -277,67 +245,11 @@ const App = () => {
         height={canvasDimensions.height}
         doesVideoNeedToBeMirrored={doesVideoNeedToBeMirrored}
       />
-      {currentReplayIndex !== null && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: [
-              'translate(-50%, -50%)',
-              doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
-            ].join(' '),
-          }}
-        >
-          <video
-            ref={replayVideoRef}
-            id='replay'
-            width={canvasDimensions.width}
-            height={canvasDimensions.height}
-            style={{}}
-            src={replayVideoURLs[currentReplayIndex]}
-            onLoadedMetadata={startFromOffset}
-            onEnded={startFromOffset}
-            controls={false}
-          />
-          <div
-            style={{
-              color: 'white',
-              fontWeight: 600,
-              fontSize: 32,
-              position: 'absolute',
-              top: 4,
-              ...(previewCorner === 'tl' || previewCorner === 'bl'
-                ? { right: 4 }
-                : { left: 4 }),
-              width: 40,
-              height: 40,
-              textAlign: 'center',
-              userSelect: 'none',
-              cursor: 'pointer',
-              textShadow: '0 0 4px #0004',
-            }}
-            onClick={closeReplay}
-          >
-            ×
-          </div>
-          <img
-            src='./instant-replay.svg'
-            alt='Instant Replay®'
-            style={{
-              width: '35%',
-              color: '#fffa',
-              fontSize: 30,
-              fontStyle: 'italic',
-              position: 'absolute',
-              fontWeight: 800,
-              bottom: 8,
-              ...(previewCorner === 'tl' || previewCorner === 'bl'
-                ? { right: 8 }
-                : { left: 8 }),
-            }}
-          />
-        </div>
+      {currentReplayIndex != null && (
+        <ReplayPlayer
+          ref={replayVideoRef}
+          currentReplayIndex={currentReplayIndex}
+        />
       )}
       {tfReadyStatus !== 'ready' && (
         <progress
@@ -350,35 +262,7 @@ const App = () => {
           id='progress-bar'
         />
       )}
-      <div
-        id='file-dropzone'
-        {...getRootProps()}
-        style={{
-          height: '100%',
-          width: '100%',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          pointerEvents: 'none',
-        }}
-      />
-      {isDragActive && (
-        <div
-          style={{
-            height: 'calc(100% - 100px - 20px)',
-            width: 'calc(100% - 100px - 20px)',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            margin: 50,
-            borderWidth: 10,
-            borderStyle: 'dashed',
-            borderColor: '#0006',
-            pointerEvents: 'none',
-            borderRadius: 20,
-          }}
-        ></div>
-      )}
+      <FileDropzone />
       <CornerSnapper
         parentWidth={screenDimensions.width}
         parentHeight={screenDimensions.height}
