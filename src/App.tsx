@@ -7,10 +7,8 @@ import * as posedetection from '@tensorflow-models/pose-detection'
 import * as tf from '@tensorflow/tfjs'
 import React from 'react'
 import { Canvas } from './Canvas'
-import { CornerSnapper } from './CornerSnapper'
-import { DebugBox } from './DebugBox'
 import { FileDropzone } from './FileDropzone'
-import { RecordingLabel } from './RecordingLabel'
+import { LivePreview } from './LivePreview'
 import { ReplayPlayer } from './ReplayPlayer'
 import { drawFrame } from './drawFrame'
 import { useAppState } from './state'
@@ -23,16 +21,10 @@ navigator.mediaDevices.getUserMedia({
 export const DebugMode: boolean = true
 
 const App = () => {
-  const thumbnailVideoRef = React.useRef<HTMLVideoElement>(null)
+  const livePreviewRef = React.useRef<HTMLVideoElement>(null)
   const backgroundVideoRef = React.useRef<HTMLVideoElement>(null)
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const replayVideoRef = React.useRef<HTMLVideoElement>(null)
-
-  const scratchRef = React.useRef(useAppState.getState())
-  React.useEffect(
-    () => useAppState.subscribe((state) => (scratchRef.current = state)),
-    [],
-  )
 
   const tfReadyStatus = useAppState((s) => s.tfReadyStatus)
 
@@ -40,11 +32,8 @@ const App = () => {
 
   const recordingStatus = useAppState((s) => s.recordingStatus)
 
-  const screenDimensions = useAppState((s) => s.screenDimensions)
-  const canvasDimensions = useAppState((s) => s.canvasDimensions)
   const sourceDimensions = useAppState((s) => s.sourceDimensions)
 
-  const handstandStart = useAppState((s) => s.handstandStart)
   const videoSrcObject = useAppState((s) => s.videoSrcObject)
 
   const mediaRecorder = useAppState((s) => s.mediaRecorder)
@@ -53,22 +42,22 @@ const App = () => {
 
   const addChunk = useAppState((s) => s.addChunk)
 
-  const doesVideoNeedToBeMirrored = useAppState().doesVideoNeedToBeMirrored()
+  const doesVideoNeedToBeMirrored = useAppState((s) =>
+    s.doesVideoNeedToBeMirrored(),
+  )
 
   React.useEffect(() => {
     ;(async () => {
       await tf.setBackend('webgl')
       if (videoSrcObject == null) {
-        await navigator.mediaDevices
+        const source = await navigator.mediaDevices
           .getUserMedia({
             video: true,
-          })
-          .then((source) => {
-            useAppState.setState({ videoSrcObject: source })
           })
           .catch(() => {
             throw new Error("Can't get webcam video.")
           })
+        useAppState.setState({ videoSrcObject: source })
       }
     })()
   }, [videoSrcObject])
@@ -108,37 +97,38 @@ const App = () => {
       // make sure the video stream is properly loaded
       videoSrcObject instanceof MediaStream
     ) {
-      const thumbnailVideoElement = thumbnailVideoRef.current
-      const canvasElement = canvasRef.current
-      if (canvasElement == null || thumbnailVideoElement == null) {
-        throw new Error(`Canvas or video elements missing`)
-      }
+      ;(async () => {
+        const thumbnailVideoElement = livePreviewRef.current
+        const canvasElement = canvasRef.current
+        if (canvasElement == null || thumbnailVideoElement == null) {
+          throw new Error(`Canvas or video elements missing`)
+        }
 
-      posedetection
-        .createDetector(posedetection.SupportedModels.BlazePose, {
-          runtime: 'tfjs',
-          enableSmoothing: true,
-          modelType: 'lite',
+        const newModel = await posedetection
+          .createDetector(posedetection.SupportedModels.BlazePose, {
+            runtime: 'tfjs',
+            enableSmoothing: true,
+            modelType: 'lite',
+          })
+          .catch(() => {
+            throw new Error("Can't initialize pose detection.")
+          })
+
+        useAppState.setState({
+          tfReadyStatus: 'loading',
+          model: newModel,
         })
-        .then((newModel) => {
+        newModel.estimatePoses(thumbnailVideoElement).then(() => {
           useAppState.setState({
-            tfReadyStatus: 'loading',
-            model: newModel,
-          })
-          newModel.estimatePoses(thumbnailVideoElement).then(() => {
-            useAppState.setState({
-              tfReadyStatus: 'ready',
-            })
+            tfReadyStatus: 'ready',
           })
         })
-        .catch(() => {
-          throw new Error("Can't initialize pose detection.")
-        })
+      })()
     }
   }, [tfReadyStatus, videoSrcObject])
 
   React.useEffect(() => {
-    const thumbnailVideo = thumbnailVideoRef.current
+    const thumbnailVideo = livePreviewRef.current
     const canvas = canvasRef.current
     if (thumbnailVideo != null && canvas != null && model != null) {
       let rafId: number
@@ -162,7 +152,7 @@ const App = () => {
         videoSrcObject instanceof MediaStream ||
         videoSrcObject instanceof File
       ) {
-        const thumbnailVideo = thumbnailVideoRef.current
+        const thumbnailVideo = livePreviewRef.current
         const backgroundVideo = backgroundVideoRef.current
         if (thumbnailVideo == null || backgroundVideo == null) {
           throw new Error(`One or both video elements are missing`)
@@ -178,8 +168,6 @@ const App = () => {
   }, [videoSrcObject])
 
   const sourceAspectRatio = sourceDimensions.width / sourceDimensions.height
-  const thumbnailHeight = 150
-  const thumbnailWidth = thumbnailHeight * sourceAspectRatio
 
   React.useEffect(() => {
     const resize = () => {
@@ -192,28 +180,9 @@ const App = () => {
       })
     }
     window.addEventListener('resize', resize)
-    resize() // Call resize once to set initial size
+    resize()
     return () => window.removeEventListener('resize', resize)
   }, [sourceAspectRatio])
-
-  React.useEffect(() => {
-    if (thumbnailVideoRef.current != null) {
-      thumbnailVideoRef.current.addEventListener(
-        'loaded',
-        () => {
-          if (thumbnailVideoRef.current != null) {
-            useAppState.setState({
-              sourceDimensions: {
-                width: thumbnailVideoRef.current.width,
-                height: thumbnailVideoRef.current.height,
-              },
-            })
-          }
-        },
-        false,
-      )
-    }
-  }, [])
 
   return (
     <div
@@ -238,13 +207,7 @@ const App = () => {
         autoPlay
         ref={backgroundVideoRef}
       />
-      <Canvas
-        style={{ display: tfReadyStatus === 'ready' ? undefined : 'none' }}
-        ref={canvasRef}
-        width={canvasDimensions.width}
-        height={canvasDimensions.height}
-        doesVideoNeedToBeMirrored={doesVideoNeedToBeMirrored}
-      />
+      <Canvas ref={canvasRef} />
       {currentReplayIndex != null && (
         <ReplayPlayer
           ref={replayVideoRef}
@@ -263,44 +226,16 @@ const App = () => {
         />
       )}
       <FileDropzone />
-      <CornerSnapper
-        parentWidth={screenDimensions.width}
-        parentHeight={screenDimensions.height}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          overflow: 'hidden',
-          borderRadius: 10,
-          boxShadow: '0 0 10px #0004',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            pointerEvents: 'none',
-            backgroundColor: 'rgba(0, 0, 0, 0.25)',
-            WebkitBackdropFilter: 'blur(10px)',
-          }}
-        >
-          <video
-            style={{
-              transform: doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
-            }}
-            width={thumbnailWidth}
-            height={thumbnailHeight}
-            muted
-            controls={false}
-            autoPlay
-            loop
-            ref={thumbnailVideoRef}
-          />
-          {handstandStart != null && <RecordingLabel />}
-        </div>
-        {DebugMode && <DebugBox />}
-      </CornerSnapper>
+      <LivePreview ref={livePreviewRef} sourceAspectRatio={sourceAspectRatio} />
     </div>
   )
 }
 
 export default App
+
+/**
+ * TODO
+ * - find a way to make loading not be block the main thread
+ * - give the video player a scrubber
+ * - view all the replays with their times and a screenshot
+ */

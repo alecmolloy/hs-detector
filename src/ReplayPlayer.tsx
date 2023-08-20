@@ -16,12 +16,12 @@ export const ReplayPlayer = React.forwardRef<
   }
 
   const canvasDimensions = useAppState((s) => s.canvasDimensions)
-
   const replayVideoURLs = useAppState((s) => s.replayVideoURLs)
-
   const replayVideoStarts = useAppState((s) => s.replayVideoStartOffets)
-
   const previewCorner = useAppState((s) => s.previewCorner)
+  const doesVideoNeedToBeMirrored = useAppState((s) =>
+    s.doesVideoNeedToBeMirrored(),
+  )
 
   const startFromOffset = React.useCallback(() => {
     if (currentReplayIndex == null || replayVideoStarts.length === 0) {
@@ -33,7 +33,6 @@ export const ReplayPlayer = React.forwardRef<
     const replayVideo = replayVideoRef.current
     if (replayVideo != null) {
       const replayVideoStart = replayVideoStarts[currentReplayIndex]
-      console.log(replayVideo.currentTime, replayVideoStart / 1000)
       replayVideo.currentTime = Math.max(0, replayVideoStart / 1000)
       replayVideo.play()
     }
@@ -58,9 +57,7 @@ export const ReplayPlayer = React.forwardRef<
         onEnded={startFromOffset}
         controls={false}
         style={{
-          transform: useAppState().doesVideoNeedToBeMirrored()
-            ? 'scaleX(-1)'
-            : undefined,
+          transform: doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
         }}
       />
       <div

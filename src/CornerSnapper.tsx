@@ -8,19 +8,20 @@ interface CornerSnapperProps
   extends React.DetailedHTMLProps<
     React.HTMLAttributes<HTMLDivElement>,
     HTMLDivElement
-  > {
-  parentWidth: number
-  parentHeight: number
-}
+  > {}
 
 const cornerPadding = 20
 
 export const CornerSnapper: React.FC<
   React.PropsWithChildren<CornerSnapperProps>
-> = ({ parentWidth, parentHeight, style, children }) => {
+> = ({ style, children }) => {
   const ref = React.useRef<HTMLDivElement>(null)
 
-  const [dimensions, setDimensions] = React.useState<DOMRect | null>(null)
+  const [videoDimensions, setVideoDimensions] = React.useState<DOMRect | null>(
+    null,
+  )
+
+  const screenDimensions = useAppState((s) => s.screenDimensions)
 
   // Set the initial position
   const [spring, api] = useSpring(() => ({
@@ -52,32 +53,42 @@ export const CornerSnapper: React.FC<
     if (ref.current == null) {
       throw new Error('ref.current should not be null')
     }
-    setDimensions(ref.current.getBoundingClientRect())
+    setVideoDimensions(ref.current.getBoundingClientRect())
   }, [])
 
-  useResizeObserver(ref, (entry) => setDimensions(entry.contentRect))
+  useResizeObserver(ref, (entry) => setVideoDimensions(entry.contentRect))
 
   // Define the corner positions
   const corners = React.useMemo(
     () => ({
       tl: { x: cornerPadding, y: cornerPadding },
       tr: {
-        x: parentWidth - (dimensions?.width ?? 0) - cornerPadding,
+        x:
+          screenDimensions.width -
+          (videoDimensions?.width ?? 0) -
+          cornerPadding,
         y: cornerPadding,
       },
       bl: {
         x: cornerPadding,
-        y: parentHeight - (dimensions?.height ?? 0) - cornerPadding,
+        y:
+          screenDimensions.height -
+          (videoDimensions?.height ?? 0) -
+          cornerPadding,
       },
       br: {
-        x: parentWidth - (dimensions?.width ?? 0) - cornerPadding,
-        y: parentHeight - (dimensions?.height ?? 0) - cornerPadding,
+        x:
+          screenDimensions.width -
+          (videoDimensions?.width ?? 0) -
+          cornerPadding,
+        y:
+          screenDimensions.height -
+          (videoDimensions?.height ?? 0) -
+          cornerPadding,
       },
     }),
-    [parentHeight, parentWidth, dimensions],
+    [screenDimensions, videoDimensions],
   )
-
-  console.log(corners)
 
   const getClosestCornerCoordinates = React.useCallback(
     (dx: number, dy: number) => {
@@ -123,12 +134,16 @@ export const CornerSnapper: React.FC<
     }
   })
 
+  // for some reason, this doesn't work. It seems the cleanup function is running before
+  // the updatePosition callback has a chance to run. Never seen this before. Not sure
+  // what to do.
+
   React.useEffect(() => {
     const updatePosition = () => {
       goToClosestCorner(0, 0, true)
     }
     window.addEventListener('resize', updatePosition)
-
+    updatePosition()
     return () => {
       window.removeEventListener('resize', updatePosition)
     }
