@@ -6,6 +6,7 @@ export const FileDropzone = () => {
   const onDrop = React.useCallback((acceptedFiles: Array<File>) => {
     useAppState.setState({
       videoSrcObject: acceptedFiles[0],
+      mediaRecorder: null,
     })
   }, [])
 
@@ -39,7 +40,6 @@ export const FileDropzone = () => {
           position: 'absolute',
           top: 0,
           left: 0,
-          pointerEvents: 'none',
         }}
       />
     </>

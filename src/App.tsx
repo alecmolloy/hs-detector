@@ -18,7 +18,7 @@ navigator.mediaDevices.getUserMedia({
   video: true,
 })
 
-export const DebugMode: boolean = true
+export const DebugMode: boolean = false
 
 const App = () => {
   const livePreviewRef = React.useRef<HTMLVideoElement>(null)
@@ -63,16 +63,31 @@ const App = () => {
   }, [videoSrcObject])
 
   React.useEffect(() => {
-    if (mediaRecorder == null && videoSrcObject instanceof MediaStream) {
-      const newMediaRecorder = new MediaRecorder(videoSrcObject, {
-        mimeType: 'video/mp4',
-      })
-      newMediaRecorder.start()
-      useAppState.setState({
-        recordingStart: Date.now(),
-        mediaRecorder: newMediaRecorder,
-        recordingStatus: 'passive-recording',
-      })
+    if (mediaRecorder == null) {
+      if (videoSrcObject instanceof MediaStream) {
+        const newMediaRecorder = new MediaRecorder(videoSrcObject, {
+          mimeType: 'video/mp4',
+        })
+        newMediaRecorder.start()
+        useAppState.setState({
+          recordingStart: Date.now(),
+          mediaRecorder: newMediaRecorder,
+          recordingStatus: 'passive-recording',
+        })
+      } else if (videoSrcObject instanceof File && canvasRef.current != null) {
+        const newMediaRecorder = new MediaRecorder(
+          canvasRef.current.captureStream(),
+          {
+            mimeType: 'video/mp4',
+          },
+        )
+        newMediaRecorder.start()
+        useAppState.setState({
+          recordingStart: Date.now(),
+          mediaRecorder: newMediaRecorder,
+          recordingStatus: 'passive-recording',
+        })
+      }
     }
   }, [mediaRecorder, recordingStatus, videoSrcObject])
 
@@ -108,7 +123,7 @@ const App = () => {
           .createDetector(posedetection.SupportedModels.BlazePose, {
             runtime: 'tfjs',
             enableSmoothing: true,
-            modelType: 'lite',
+            modelType: 'full',
           })
           .catch(() => {
             throw new Error("Can't initialize pose detection.")
@@ -235,7 +250,12 @@ export default App
 
 /**
  * TODO
- * - find a way to make loading not be block the main thread
+ * - check the handstand recognition, see why it sucks
  * - give the video player a scrubber
  * - view all the replays with their times and a screenshot
+ * - change the MediaRecorder system to have a set of three, which cycle
+ *   between each of them, discarding them if a handstand isn't detected,
+ *   giving us recordings that start 1s before each handstand.
+ * - find a way to make loading not be block the main thread
+ * - review the rerenders
  */
