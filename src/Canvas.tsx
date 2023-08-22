@@ -34,3 +34,5 @@ export const Canvas = React.forwardRef<HTMLCanvasElement, CanvasProps>(
     )
   },
 )
+
+Canvas.displayName = 'Canvas'

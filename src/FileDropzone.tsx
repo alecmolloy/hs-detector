@@ -3,12 +3,12 @@ import { useDropzone } from 'react-dropzone'
 import { useAppState } from './state'
 
 export const FileDropzone = () => {
-  const onDrop = React.useCallback((acceptedFiles: Array<File>) => {
+  const onDrop = (acceptedFiles: Array<File>) => {
     useAppState.setState({
       videoSrcObject: acceptedFiles[0],
       mediaRecorder: null,
     })
-  }, [])
+  }
 
   const { getRootProps, isDragActive } = useDropzone({ onDrop, maxFiles: 1 })
 
@@ -29,7 +29,7 @@ export const FileDropzone = () => {
             pointerEvents: 'none',
             borderRadius: 20,
           }}
-        ></div>
+        />
       )}
       <div
         id='file-dropzone'
@@ -40,6 +40,7 @@ export const FileDropzone = () => {
           position: 'absolute',
           top: 0,
           left: 0,
+          pointerEvents: 'none',
         }}
       />
     </>

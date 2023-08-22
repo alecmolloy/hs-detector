@@ -64,21 +64,26 @@ const App = () => {
 
   React.useEffect(() => {
     if (mediaRecorder == null) {
+      const mimeType = MediaRecorder.isTypeSupported('video/webm')
+        ? 'video/webm'
+        : 'video/mp4'
+
       if (videoSrcObject instanceof MediaStream) {
         const newMediaRecorder = new MediaRecorder(videoSrcObject, {
-          mimeType: 'video/mp4',
+          mimeType,
         })
         newMediaRecorder.start()
         useAppState.setState({
           recordingStart: Date.now(),
           mediaRecorder: newMediaRecorder,
           recordingStatus: 'passive-recording',
+          mimeType,
         })
       } else if (videoSrcObject instanceof File && canvasRef.current != null) {
         const newMediaRecorder = new MediaRecorder(
           canvasRef.current.captureStream(),
           {
-            mimeType: 'video/mp4',
+            mimeType,
           },
         )
         newMediaRecorder.start()
@@ -182,22 +187,17 @@ const App = () => {
     }
   }, [videoSrcObject])
 
-  const sourceAspectRatio = sourceDimensions.width / sourceDimensions.height
-
   React.useEffect(() => {
+    const sourceAspectRatio = sourceDimensions.width / sourceDimensions.height
     const resize = () => {
       useAppState.setState({
-        screenDimensions: {
-          width: window.innerWidth,
-          height: window.innerHeight,
-        },
         canvasDimensions: getCanvasDimensions(sourceAspectRatio),
       })
     }
     window.addEventListener('resize', resize)
     resize()
     return () => window.removeEventListener('resize', resize)
-  }, [sourceAspectRatio])
+  }, [sourceDimensions])
 
   return (
     <div
@@ -241,7 +241,7 @@ const App = () => {
         />
       )}
       <FileDropzone />
-      <LivePreview ref={livePreviewRef} sourceAspectRatio={sourceAspectRatio} />
+      <LivePreview ref={livePreviewRef} />
     </div>
   )
 }
@@ -258,4 +258,6 @@ export default App
  *   giving us recordings that start 1s before each handstand.
  * - find a way to make loading not be block the main thread
  * - review the rerenders
+ * - fix clicking on dropzone in chrome opening the file picker
+ * - maybe improve perf by limiting number of pose detection calls, not every frame?
  */

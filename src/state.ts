@@ -11,7 +11,6 @@ interface State {
     | 'middle'
     | 'possible-end'
     | 'preparing-replay'
-  screenDimensions: Dimensions
   canvasDimensions: Dimensions
   sourceDimensions: Dimensions
   recordingStart: number | null
@@ -26,6 +25,7 @@ interface State {
   debugWireframes: boolean
   debugOverrideHandstandState: boolean
   previewCorner: CornerLabel
+  mimeType: 'video/webm' | 'video/mp4' | null
 }
 
 interface Actions {
@@ -39,10 +39,6 @@ export const useAppState = create<State & Actions>()((set, get) => ({
   tfReadyStatus: null,
   model: null,
   recordingStatus: null,
-  screenDimensions: {
-    width: window.innerWidth,
-    height: window.innerHeight,
-  },
   canvasDimensions: {
     width: 0,
     height: 0,
@@ -63,12 +59,16 @@ export const useAppState = create<State & Actions>()((set, get) => ({
   debugWireframes: false,
   debugOverrideHandstandState: false,
   previewCorner: 'tl',
+  mimeType: null,
 
   prepareReplay: () =>
     set((state) => {
       const chunks = state.chunks
+      if (state.mimeType == null) {
+        throw new Error(`mimeType should not be null`)
+      }
       const blob = new Blob([...chunks], {
-        type: 'video/mp4',
+        type: state.mimeType,
       })
       const newReplayVideoURL = URL.createObjectURL(blob)
       const oldReplayVideoURLs = state.replayVideoURLs

@@ -23,7 +23,7 @@ export const ReplayPlayer = React.forwardRef<
     s.doesVideoNeedToBeMirrored(),
   )
 
-  const startFromOffset = React.useCallback(() => {
+  const startFromOffset = () => {
     if (currentReplayIndex == null || replayVideoStarts.length === 0) {
       throw new Error(
         `currentReplayIndex must not be null, and replayVideoStarts must have content`,
@@ -36,7 +36,7 @@ export const ReplayPlayer = React.forwardRef<
       replayVideo.currentTime = Math.max(0, replayVideoStart / 1000)
       replayVideo.play()
     }
-  }, [currentReplayIndex, replayVideoRef, replayVideoStarts])
+  }
 
   return (
     <div
@@ -101,3 +101,5 @@ export const ReplayPlayer = React.forwardRef<
     </div>
   )
 })
+
+ReplayPlayer.displayName = 'ReplayPlayer'
