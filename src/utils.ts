@@ -100,7 +100,10 @@ export function findKeypoint(pose: posedetection.Pose) {
   }
 }
 
-export function isPoseAHandstand(pose: posedetection.Pose): boolean {
+export function isPoseAHandstand(pose?: posedetection.Pose): boolean {
+  if (pose == null) {
+    return false
+  }
   const find = findKeypoint(pose)
   const leftWrist = find('left_wrist')
   const rightWrist = find('right_wrist')

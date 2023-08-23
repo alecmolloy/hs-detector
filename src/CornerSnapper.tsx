@@ -31,7 +31,6 @@ export const CornerSnapper: React.FC<CornerSnapperProps> = ({
   style,
   children,
 }) => {
-  console.log('rendering CornerSnapper')
   const ref = React.useRef<HTMLDivElement>(null)
 
   const [videoDimensions, setVideoDimensions] = React.useState<DOMRect | null>(

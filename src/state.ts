@@ -4,18 +4,10 @@ import { create } from 'zustand'
 interface State {
   tfReadyStatus: null | 'ready' | 'loading'
   model: posedetection.PoseDetector | null
-  recordingStatus:
-    | null
-    | 'passive-recording'
-    | 'possible-start'
-    | 'middle'
-    | 'possible-end'
-    | 'preparing-replay'
   canvasDimensions: Dimensions
   sourceDimensions: Dimensions
   recordingStart: number | null
   handstandStart: number | null
-  handstandEnd: number | null
   videoSrcObject: MediaProvider | null
   mediaRecorder: MediaRecorder | null
   replayVideoURLs: Array<string>
@@ -26,6 +18,10 @@ interface State {
   debugOverrideHandstandState: boolean
   previewCorner: CornerLabel
   mimeType: 'video/webm' | 'video/mp4' | null
+  handstandCheckSamples: Array<Sample>
+  handstandCheckCounter: number
+  isHandstanding: boolean
+  triggerReplayPreparationOnNextStop: boolean
 }
 
 interface Actions {
@@ -33,12 +29,14 @@ interface Actions {
   addChunk: (chunk: BlobPart) => void
   doesVideoNeedToBeMirrored: () => boolean
   closeReplay: () => void
+  handstandCheckerPush: (sample: Sample) => void
+  percentOfPositiveSamplesInLastSecond: () => number | null
+  getEarliestHandstandSampleTime: () => number | null
 }
 
 export const useAppState = create<State & Actions>()((set, get) => ({
   tfReadyStatus: null,
   model: null,
-  recordingStatus: null,
   canvasDimensions: {
     width: 0,
     height: 0,
@@ -49,7 +47,6 @@ export const useAppState = create<State & Actions>()((set, get) => ({
   },
   recordingStart: null,
   handstandStart: null,
-  handstandEnd: null,
   videoSrcObject: null,
   mediaRecorder: null,
   replayVideoURLs: [],
@@ -60,6 +57,10 @@ export const useAppState = create<State & Actions>()((set, get) => ({
   debugOverrideHandstandState: false,
   previewCorner: 'tl',
   mimeType: null,
+  handstandCheckSamples: [],
+  handstandCheckCounter: 0,
+  isHandstanding: false,
+  triggerReplayPreparationOnNextStop: false,
 
   prepareReplay: () =>
     set((state) => {
@@ -93,8 +94,6 @@ export const useAppState = create<State & Actions>()((set, get) => ({
         currentReplayIndex: oldReplayVideoURLs.length,
         recordingStart: Date.now(),
         handstandStart: null,
-        handstandEnd: null,
-        recordingStatus: 'passive-recording',
         chunks: [],
       }
     }),
@@ -104,6 +103,50 @@ export const useAppState = create<State & Actions>()((set, get) => ({
     }),
   doesVideoNeedToBeMirrored: () => get().videoSrcObject instanceof MediaStream,
   closeReplay: () => set(() => ({ currentReplayIndex: null })),
+  handstandCheckerPush: (sample) =>
+    set((state) => {
+      const workingHandstandCheckSamples = [...state.handstandCheckSamples]
+      workingHandstandCheckSamples.push(sample)
+      let workingCounter = state.handstandCheckCounter
+      if (sample.isHandstand) {
+        workingCounter++
+      }
+
+      // Remove outdated samples from the front
+      while (
+        workingHandstandCheckSamples.length > 0 &&
+        sample.timestamp - workingHandstandCheckSamples[0].timestamp > 1000
+      ) {
+        if (workingHandstandCheckSamples[0].isHandstand) {
+          workingCounter--
+        }
+        workingHandstandCheckSamples.shift()
+      }
+      return {
+        handstandCheckSamples: workingHandstandCheckSamples,
+        handstandCheckCounter: workingCounter,
+      }
+    }),
+  percentOfPositiveSamplesInLastSecond: () => {
+    const handstandCheckSamples = get().handstandCheckSamples
+    const handstandCheckCounter = get().handstandCheckCounter
+
+    // Don't provide an answer if the number of samples is too low
+    if (4 > handstandCheckSamples.length) {
+      return null
+    }
+    return handstandCheckCounter / handstandCheckSamples.length
+  },
+  getEarliestHandstandSampleTime: () => {
+    const earliestSample = get().handstandCheckSamples.find(
+      (v) => v.isHandstand === true,
+    )
+    if (earliestSample == null) {
+      return null
+    } else {
+      return earliestSample.timestamp
+    }
+  },
 }))
 
 export interface Dimensions {
@@ -112,3 +155,12 @@ export interface Dimensions {
 }
 
 export type CornerLabel = 'tl' | 'tr' | 'br' | 'bl'
+
+type Sample = {
+  timestamp: number
+  isHandstand: boolean
+}
+
+export function sample(timestamp: number, isHandstand: boolean): Sample {
+  return { timestamp, isHandstand }
+}

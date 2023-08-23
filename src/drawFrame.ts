@@ -1,7 +1,7 @@
 import * as posedetection from '@tensorflow-models/pose-detection'
 
 import { DebugMode } from './App'
-import { useAppState } from './state'
+import { sample, useAppState } from './state'
 import {
   drawSkeleton,
   getCanvasSkeletonScaleFactorFromSource,
@@ -47,81 +47,58 @@ export const drawFrame = async (
 
     const debugOverrideHandstandState =
       useAppState.getState().debugOverrideHandstandState
+
     const poseIsHandstanding = DebugMode
       ? debugOverrideHandstandState
-      : pose != null
-      ? isPoseAHandstand(pose)
-      : false
+      : isPoseAHandstand(pose)
 
-    const recordingStatus = useAppState.getState().recordingStatus
+    useAppState
+      .getState()
+      .handstandCheckerPush(sample(Date.now(), poseIsHandstanding))
 
-    switch (recordingStatus) {
-      case 'passive-recording': {
-        if (poseIsHandstanding || debugOverrideHandstandState) {
+    const mediaRecorder = useAppState.getState().mediaRecorder
+    if (mediaRecorder == null) {
+      throw new Error(`MediaRecorder not found`)
+    }
+
+    const percentOfPositiveSamplesInLastSecond = useAppState
+      .getState()
+      .percentOfPositiveSamplesInLastSecond()
+
+    const wasHandstanding = useAppState.getState().handstandStart != null
+
+    if (percentOfPositiveSamplesInLastSecond == null) {
+      console.log('not enough samples to make judgement')
+    } else {
+      if (wasHandstanding) {
+        if (percentOfPositiveSamplesInLastSecond >= 0.2) {
+          // NO_OP
+        } else {
+          console.log('stopping')
+          mediaRecorder.stop()
           useAppState.setState({
-            handstandStart: Date.now(),
-            recordingStatus: 'possible-start',
+            isHandstanding: false,
+            triggerReplayPreparationOnNextStop: true,
           })
         }
-        break
-      }
-      case 'possible-start': {
-        const handstandStart = useAppState.getState().handstandStart
-        if (handstandStart == null) {
-          throw new Error(
-            `Internal Error: 'handstandStart' should have a value, but was not found.`,
-          )
-        }
-        if (
-          pose == null ||
-          poseIsHandstanding === false ||
-          (DebugMode && debugOverrideHandstandState === false)
-        ) {
+      } else {
+        if (percentOfPositiveSamplesInLastSecond >= 0.8) {
+          console.log('starting')
+          const handstandStart = useAppState
+            .getState()
+            .getEarliestHandstandSampleTime()
+          if (handstandStart == null) {
+            throw new Error(
+              `Internal Error: 'handstandStart' should have a value, but was not found.`,
+            )
+          }
           useAppState.setState({
-            handstandEnd: Date.now(),
-            recordingStatus: 'possible-end',
+            isHandstanding: true,
+            handstandStart,
           })
-        } else if (Date.now() > handstandStart + 1000) {
-          useAppState.setState({
-            recordingStatus: 'middle',
-          })
+        } else {
+          // No_OP
         }
-        break
-      }
-      case 'middle': {
-        if (
-          pose == null ||
-          poseIsHandstanding === false ||
-          (DebugMode && debugOverrideHandstandState === false)
-        ) {
-          useAppState.setState({
-            handstandEnd: Date.now(),
-            recordingStatus: 'possible-end',
-          })
-        }
-        break
-      }
-      case 'possible-end': {
-        const handstandEnd = useAppState.getState().handstandEnd
-        if (handstandEnd == null) {
-          throw new Error(
-            `Internal Error: 'handstandEnd' should have a value, but was not found.`,
-          )
-        }
-        if (Date.now() > handstandEnd + 1000) {
-          useAppState.setState({
-            recordingStatus: 'preparing-replay',
-          })
-        }
-        break
-      }
-      case 'preparing-replay': {
-        const mediaRecorder = useAppState.getState().mediaRecorder
-        if (mediaRecorder == null) {
-          throw new Error(`MediaRecorder not found`)
-        }
-        mediaRecorder.stop()
-        break
       }
     }
   }

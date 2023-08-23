@@ -30,8 +30,6 @@ const App = () => {
 
   const model = useAppState((s) => s.model)
 
-  const recordingStatus = useAppState((s) => s.recordingStatus)
-
   const sourceDimensions = useAppState((s) => s.sourceDimensions)
 
   const videoSrcObject = useAppState((s) => s.videoSrcObject)
@@ -76,7 +74,6 @@ const App = () => {
         useAppState.setState({
           recordingStart: Date.now(),
           mediaRecorder: newMediaRecorder,
-          recordingStatus: 'passive-recording',
           mimeType,
         })
       } else if (videoSrcObject instanceof File && canvasRef.current != null) {
@@ -90,11 +87,10 @@ const App = () => {
         useAppState.setState({
           recordingStart: Date.now(),
           mediaRecorder: newMediaRecorder,
-          recordingStatus: 'passive-recording',
         })
       }
     }
-  }, [mediaRecorder, recordingStatus, videoSrcObject])
+  }, [mediaRecorder, videoSrcObject])
 
   React.useEffect(() => {
     if (mediaRecorder instanceof MediaRecorder) {
@@ -102,7 +98,12 @@ const App = () => {
       mediaRecorder.addEventListener('dataavailable', onDataAvailable)
 
       const onStop = () => {
-        useAppState.getState().prepareReplay()
+        if (
+          useAppState.getState().triggerReplayPreparationOnNextStop === true
+        ) {
+          useAppState.getState().prepareReplay()
+          useAppState.setState({ triggerReplayPreparationOnNextStop: false })
+        }
       }
       mediaRecorder.addEventListener('stop', onStop)
       return () => {
@@ -250,9 +251,9 @@ export default App
 
 /**
  * TODO
+ * - view all the replays with their times and a screenshot
  * - check the handstand recognition, see why it sucks
  * - give the video player a scrubber
- * - view all the replays with their times and a screenshot
  * - change the MediaRecorder system to have a set of three, which cycle
  *   between each of them, discarding them if a handstand isn't detected,
  *   giving us recordings that start 1s before each handstand.
@@ -260,4 +261,9 @@ export default App
  * - review the rerenders
  * - fix clicking on dropzone in chrome opening the file picker
  * - maybe improve perf by limiting number of pose detection calls, not every frame?
+ */
+
+/**
+ * So basically, when we detect that a handstand has been going on for one
+ * second, we take a screenshot, and we do so every 3 seconds after that.
  */
