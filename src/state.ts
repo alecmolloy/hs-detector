@@ -27,7 +27,7 @@ interface State {
   debugOverrideHandstandState: boolean
   previewCorner: CornerLabel
   mimeType: 'video/webm' | 'video/mp4' | null
-  handstandCheckSamples: Array<Sample>
+  handstandCheckSamples: Array<HandstandFrameSample>
   handstandCheckCounter: number
   isHandstanding: boolean
   triggerReplayPreparationOnNextStop: boolean
@@ -38,7 +38,7 @@ interface Actions {
   addChunk: (chunk: BlobPart) => void
   doesVideoNeedToBeMirrored: () => boolean
   closeReplay: () => void
-  handstandCheckerPush: (sample: Sample) => void
+  handstandCheckerPush: (sample: HandstandFrameSample) => void
   percentOfPositiveSamplesInLastSecond: () => number | null
   getEarliestHandstandSampleTime: () => number | null
   setNewActiveMediaRecorder: () => void
@@ -220,11 +220,14 @@ export interface Dimensions {
 
 export type CornerLabel = 'tl' | 'tr' | 'br' | 'bl'
 
-type Sample = {
+type HandstandFrameSample = {
   timestamp: number
   isHandstand: boolean
 }
 
-export function sample(timestamp: number, isHandstand: boolean): Sample {
+export function handstandFrameSample(
+  timestamp: number,
+  isHandstand: boolean,
+): HandstandFrameSample {
   return { timestamp, isHandstand }
 }

@@ -1,7 +1,7 @@
 import * as posedetection from '@tensorflow-models/pose-detection'
 
 import { DebugMode } from './App'
-import { sample, useAppState } from './state'
+import { handstandFrameSample, useAppState } from './state'
 import {
   drawSkeleton,
   getCanvasSkeletonScaleFactorFromSource,
@@ -60,7 +60,9 @@ export const drawFrame = async (
 
     useAppState
       .getState()
-      .handstandCheckerPush(sample(Date.now(), poseIsHandstanding))
+      .handstandCheckerPush(
+        handstandFrameSample(Date.now(), poseIsHandstanding),
+      )
 
     const percentOfPositiveSamplesInLastSecond = useAppState
       .getState()
