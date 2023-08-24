@@ -144,3 +144,19 @@ export function isMutableRefObject<T extends HTMLElement>(
     return false
   }
 }
+
+/**
+ * Converts ms durations to a pretty-printed duration in the format:
+ *
+ *  **5.9s** or **10s**
+ *
+ * If fewer than ten seconds, show one decimal point, otherwise show no decimal points.
+ * */
+export function formatDuration(durationInMs: number): string {
+  const durationInSeconds = durationInMs / 1000
+  return `${
+    durationInSeconds < 10
+      ? durationInSeconds.toFixed(1)
+      : Math.floor(durationInSeconds)
+  }s`
+}

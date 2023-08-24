@@ -6,9 +6,14 @@ interface State {
   model: posedetection.PoseDetector | null
   canvasDimensions: Dimensions
   sourceDimensions: Dimensions
-  recordingStart: number | null
-  handstandStart: number | null
   videoSrcObject: MediaProvider | null
+
+  handstandStart: number | null
+  handstandEnd: number | null
+
+  recordingStart: number | null
+  recordingScreenshotURLs: Array<string>
+  recordingLastScreenshotTime: number | null
 
   activeMediaRecorder: MediaRecorder | null
   activeMediaRecorderChunks: Array<BlobPart>
@@ -21,7 +26,7 @@ interface State {
   passiveMediaRecorder2StartTime: number | null
   passiveMediaRecorder2Chunks: Array<BlobPart>
 
-  replayVideoURLs: Array<string>
+  replayVideos: Array<ReplayVideo>
   currentReplayIndex: number | null
   debugWireframes: boolean
   debugOverrideHandstandState: boolean
@@ -55,9 +60,14 @@ export const useAppState = create<State & Actions>()((set, get) => ({
     width: 640,
     height: 480,
   },
-  recordingStart: null,
-  handstandStart: null,
   videoSrcObject: null,
+
+  handstandStart: null,
+  handstandEnd: null,
+
+  recordingStart: null,
+  recordingScreenshotURLs: [],
+  recordingLastScreenshotTime: null,
 
   activeMediaRecorder: null,
   activeMediaRecorderChunks: [],
@@ -70,9 +80,8 @@ export const useAppState = create<State & Actions>()((set, get) => ({
   passiveMediaRecorder2StartTime: null,
   passiveMediaRecorder2Chunks: [],
 
-  replayVideoURLs: [],
+  replayVideos: [],
   currentReplayIndex: null,
-  chunks: [],
   debugWireframes: false,
   debugOverrideHandstandState: false,
   previewCorner: 'tl',
@@ -91,18 +100,29 @@ export const useAppState = create<State & Actions>()((set, get) => ({
       const blob = new Blob([...chunks], {
         type: state.mimeType,
       })
-      const newReplayVideoURL = URL.createObjectURL(blob)
-      const oldReplayVideoURLs = state.replayVideoURLs
+      const replayVideoURL = URL.createObjectURL(blob)
+      const screenshots = state.recordingScreenshotURLs
+      if (state.handstandStart == null || state.handstandEnd == null) {
+        throw new Error(`handstandStart and handstandEnd should not be null`)
+      }
+      const length = state.handstandEnd - state.handstandStart
+      const oldReplayVideos = state.replayVideos
 
       // Reset media recorders
       if (state.passiveMediaRecorder1?.state === 'recording') {
       }
 
       return {
-        replayVideoURLs: [...oldReplayVideoURLs, newReplayVideoURL],
-        currentReplayIndex: oldReplayVideoURLs.length,
+        replayVideos: [
+          ...oldReplayVideos,
+          replayVideo(replayVideoURL, screenshots, length),
+        ],
+        recordingScreenshotURLs: [],
+        recordingLastScreenshotTime: null,
+        currentReplayIndex: oldReplayVideos.length,
         recordingStart: Date.now(),
         handstandStart: null,
+        handstandEnd: null,
         activeMediaRecorder: null,
         activeMediaRecorderChunks: [],
       }
@@ -198,7 +218,6 @@ export const useAppState = create<State & Actions>()((set, get) => ({
             activeMediaRecorderChunks: passiveMediaRecorder1Chunks,
           }
         } else {
-          console.log(passiveMediaRecorder1?.state)
           if (passiveMediaRecorder1?.state === 'recording') {
             passiveMediaRecorder1.stop()
           } else {
@@ -230,4 +249,22 @@ export function handstandFrameSample(
   isHandstand: boolean,
 ): HandstandFrameSample {
   return { timestamp, isHandstand }
+}
+
+interface ReplayVideo {
+  url: string
+  screenshots: Array<string>
+  length: number
+}
+
+function replayVideo(
+  url: string,
+  screenshots: Array<string>,
+  length: number,
+): ReplayVideo {
+  return {
+    url,
+    screenshots,
+    length,
+  }
 }

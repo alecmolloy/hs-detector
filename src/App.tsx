@@ -13,6 +13,7 @@ import { ReplayPlayer } from './ReplayPlayer'
 import { drawFrame } from './drawFrame'
 import { useAppState } from './state'
 import { getCanvasDimensions } from './utils'
+import { ReplayList } from './ReplayList'
 
 navigator.mediaDevices.getUserMedia({
   video: true,
@@ -259,6 +260,7 @@ const App = () => {
       )}
       <FileDropzone />
       <LivePreview ref={livePreviewRef} />
+      <ReplayList />
     </div>
   )
 }
@@ -267,14 +269,12 @@ export default App
 
 /**
  * TODO
- * - view all the replays with their times and a screenshot
  * - give the video player a scrubber
- * - change the MediaRecorder system to have a set of three, which cycle
- *   between each of them, discarding them if a handstand isn't detected,
- *   giving us recordings that start 1s before each handstand.
+ * - let you download the currently selected video
+ * - replay selector shows the replay videos with them as long as their duration, with their screenshots
+ *   all shown in a row. show the time it was taken so its clear when they were taken, along with length
  * - find a way to make loading not be block the main thread
  * - review the rerenders
- * - fix clicking on dropzone in chrome opening the file picker
  * - maybe improve perf by limiting number of pose detection calls, not every frame?
  */
 

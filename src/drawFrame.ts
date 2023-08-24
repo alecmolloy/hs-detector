@@ -68,14 +68,29 @@ export const drawFrame = async (
       .getState()
       .percentOfPositiveSamplesInLastSecond()
 
+    const recordingLastScreenshotTime =
+      useAppState.getState().recordingLastScreenshotTime
+
     if (percentOfPositiveSamplesInLastSecond == null) {
       console.log('not enough samples to make judgement')
     } else {
       const wasHandstanding = useAppState.getState().isHandstanding
-      console.log({ wasHandstanding })
       if (wasHandstanding) {
         if (percentOfPositiveSamplesInLastSecond >= 0.2) {
-          // NO_OP
+          if (recordingLastScreenshotTime == null) {
+            useAppState.setState({
+              recordingScreenshotURLs: [canvasElement.toDataURL()],
+              recordingLastScreenshotTime: Date.now(),
+            })
+          } else if (recordingLastScreenshotTime + 1000 < Date.now()) {
+            useAppState.setState({
+              recordingScreenshotURLs: [
+                ...useAppState.getState().recordingScreenshotURLs,
+                canvasElement.toDataURL(),
+              ],
+              recordingLastScreenshotTime: Date.now(),
+            })
+          }
         } else {
           const activeMediaRecorder = useAppState.getState().activeMediaRecorder
           if (activeMediaRecorder == null) {
@@ -84,30 +99,34 @@ export const drawFrame = async (
           useAppState.setState({
             isHandstanding: false,
             triggerReplayPreparationOnNextStop: true,
+            handstandEnd: Date.now(),
           })
           activeMediaRecorder.stop()
         }
       } else {
         if (percentOfPositiveSamplesInLastSecond >= 0.8) {
-          const handstandStart = useAppState
+          const newHandstandStart = useAppState
             .getState()
             .getEarliestHandstandSampleTime()
-          if (handstandStart == null) {
+          if (newHandstandStart == null) {
             throw new Error(
               `Internal Error: 'handstandStart' should have a value, but was not found.`,
             )
           }
           // this should only be running once
+          console.log('its running, only once for sure!')
           useAppState.getState().setNewActiveMediaRecorder()
           useAppState.setState({
             isHandstanding: true,
-            handstandStart,
+            handstandStart: newHandstandStart,
           })
         } else {
           // if a PassiveMediaRecorder is older than two seconds, stop it, discard
           // the buffer, and restart it.
           const passiveMediaRecorder1StartTime =
             useAppState.getState().passiveMediaRecorder1StartTime
+          const passiveMediaRecorder2StartTime =
+            useAppState.getState().passiveMediaRecorder2StartTime
           if (
             passiveMediaRecorder1StartTime != null &&
             Date.now() - passiveMediaRecorder1StartTime > 2000
@@ -118,11 +137,7 @@ export const drawFrame = async (
               passiveMediaRecorder1StartTime: Date.now(),
             })
             passiveMediaRecorder1.start()
-          }
-
-          const passiveMediaRecorder2StartTime =
-            useAppState.getState().passiveMediaRecorder2StartTime
-          if (
+          } else if (
             (passiveMediaRecorder2StartTime != null &&
               Date.now() - passiveMediaRecorder2StartTime > 2000) ||
             // This helps to keep both of these recorders in sync, and also will

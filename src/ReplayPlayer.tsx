@@ -16,7 +16,7 @@ export const ReplayPlayer = React.forwardRef<
   }
 
   const canvasDimensions = useAppState((s) => s.canvasDimensions)
-  const replayVideoURLs = useAppState((s) => s.replayVideoURLs)
+  const replayVideos = useAppState((s) => s.replayVideos)
   const previewCorner = useAppState((s) => s.previewCorner)
   const doesVideoNeedToBeMirrored = useAppState((s) =>
     s.doesVideoNeedToBeMirrored(),
@@ -36,7 +36,7 @@ export const ReplayPlayer = React.forwardRef<
         id='replay'
         width={canvasDimensions.width}
         height={canvasDimensions.height}
-        src={replayVideoURLs[currentReplayIndex]}
+        src={replayVideos[currentReplayIndex].url}
         controls={false}
         style={{
           transform: doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
