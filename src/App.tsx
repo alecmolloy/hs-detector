@@ -34,7 +34,9 @@ const App = () => {
 
   const videoSrcObject = useAppState((s) => s.videoSrcObject)
 
-  const mediaRecorder = useAppState((s) => s.mediaRecorder)
+  const activeMediaRecorder = useAppState((s) => s.activeMediaRecorder)
+  const passiveMediaRecorder1 = useAppState((s) => s.passiveMediaRecorder1)
+  const passiveMediaRecorder2 = useAppState((s) => s.passiveMediaRecorder2)
 
   const currentReplayIndex = useAppState((s) => s.currentReplayIndex)
 
@@ -61,41 +63,52 @@ const App = () => {
   }, [videoSrcObject])
 
   React.useEffect(() => {
-    if (mediaRecorder == null) {
+    if (
+      passiveMediaRecorder1 == null &&
+      passiveMediaRecorder2 == null &&
+      videoSrcObject != null
+    ) {
       const mimeType = MediaRecorder.isTypeSupported('video/webm')
         ? 'video/webm'
         : 'video/mp4'
-
-      if (videoSrcObject instanceof MediaStream) {
-        const newMediaRecorder = new MediaRecorder(videoSrcObject, {
-          mimeType,
-        })
-        newMediaRecorder.start()
-        useAppState.setState({
-          recordingStart: Date.now(),
-          mediaRecorder: newMediaRecorder,
-          mimeType,
-        })
-      } else if (videoSrcObject instanceof File && canvasRef.current != null) {
-        const newMediaRecorder = new MediaRecorder(
-          canvasRef.current.captureStream(),
-          {
-            mimeType,
-          },
-        )
-        newMediaRecorder.start()
-        useAppState.setState({
-          recordingStart: Date.now(),
-          mediaRecorder: newMediaRecorder,
-        })
+      if (canvasRef.current == null) {
+        throw new Error(`Canvas element missing`)
       }
+      let stream: MediaStream
+      if (videoSrcObject instanceof MediaStream) {
+        stream = videoSrcObject
+      } else if (videoSrcObject instanceof File) {
+        stream = canvasRef.current.captureStream()
+      } else {
+        throw new Error(`Invalid videoSrcObject`)
+      }
+
+      const newPassiveMediaRecorder1 = new MediaRecorder(stream, {
+        mimeType,
+      })
+      const newPassiveMediaRecorder2 = new MediaRecorder(stream, {
+        mimeType,
+      })
+      newPassiveMediaRecorder1.start()
+      useAppState.setState({
+        recordingStart: Date.now(),
+        passiveMediaRecorder1: newPassiveMediaRecorder1,
+        passiveMediaRecorder1StartTime: Date.now(),
+        passiveMediaRecorder2: newPassiveMediaRecorder2,
+        mimeType,
+      })
     }
-  }, [mediaRecorder, videoSrcObject])
+  }, [
+    activeMediaRecorder,
+    passiveMediaRecorder1,
+    passiveMediaRecorder2,
+    videoSrcObject,
+  ])
 
   React.useEffect(() => {
-    if (mediaRecorder instanceof MediaRecorder) {
+    if (activeMediaRecorder instanceof MediaRecorder) {
       const onDataAvailable = (e: BlobEvent) => addChunk(e.data)
-      mediaRecorder.addEventListener('dataavailable', onDataAvailable)
+      activeMediaRecorder.addEventListener('dataavailable', onDataAvailable)
 
       const onStop = () => {
         if (
@@ -105,12 +118,15 @@ const App = () => {
           useAppState.setState({ triggerReplayPreparationOnNextStop: false })
         }
       }
-      mediaRecorder.addEventListener('stop', onStop)
+      activeMediaRecorder.addEventListener('stop', onStop)
       return () => {
-        mediaRecorder.removeEventListener('dataavailable', onDataAvailable)
+        activeMediaRecorder.removeEventListener(
+          'dataavailable',
+          onDataAvailable,
+        )
       }
     }
-  }, [addChunk, mediaRecorder])
+  }, [addChunk, activeMediaRecorder])
 
   React.useEffect(() => {
     if (
@@ -252,7 +268,6 @@ export default App
 /**
  * TODO
  * - view all the replays with their times and a screenshot
- * - check the handstand recognition, see why it sucks
  * - give the video player a scrubber
  * - change the MediaRecorder system to have a set of three, which cycle
  *   between each of them, discarding them if a handstand isn't detected,

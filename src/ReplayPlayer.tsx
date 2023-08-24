@@ -17,26 +17,10 @@ export const ReplayPlayer = React.forwardRef<
 
   const canvasDimensions = useAppState((s) => s.canvasDimensions)
   const replayVideoURLs = useAppState((s) => s.replayVideoURLs)
-  const replayVideoStarts = useAppState((s) => s.replayVideoStartOffets)
   const previewCorner = useAppState((s) => s.previewCorner)
   const doesVideoNeedToBeMirrored = useAppState((s) =>
     s.doesVideoNeedToBeMirrored(),
   )
-
-  const startFromOffset = () => {
-    if (currentReplayIndex == null || replayVideoStarts.length === 0) {
-      throw new Error(
-        `currentReplayIndex must not be null, and replayVideoStarts must have content`,
-      )
-    }
-
-    const replayVideo = replayVideoRef.current
-    if (replayVideo != null) {
-      const replayVideoStart = replayVideoStarts[currentReplayIndex]
-      replayVideo.currentTime = Math.max(0, replayVideoStart / 1000)
-      replayVideo.play()
-    }
-  }
 
   return (
     <div
@@ -53,12 +37,12 @@ export const ReplayPlayer = React.forwardRef<
         width={canvasDimensions.width}
         height={canvasDimensions.height}
         src={replayVideoURLs[currentReplayIndex]}
-        onLoadedMetadata={startFromOffset}
-        onEnded={startFromOffset}
         controls={false}
         style={{
           transform: doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
         }}
+        loop
+        autoPlay
       />
       <div
         style={{

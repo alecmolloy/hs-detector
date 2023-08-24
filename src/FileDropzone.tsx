@@ -6,7 +6,7 @@ export const FileDropzone = () => {
   const onDrop = (acceptedFiles: Array<File>) => {
     useAppState.setState({
       videoSrcObject: acceptedFiles[0],
-      mediaRecorder: null,
+      activeMediaRecorder: null,
     })
   }
 

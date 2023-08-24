@@ -9,11 +9,20 @@ interface State {
   recordingStart: number | null
   handstandStart: number | null
   videoSrcObject: MediaProvider | null
-  mediaRecorder: MediaRecorder | null
+
+  activeMediaRecorder: MediaRecorder | null
+  activeMediaRecorderChunks: Array<BlobPart>
+
+  passiveMediaRecorder1: MediaRecorder | null
+  passiveMediaRecorder1StartTime: number | null
+  passiveMediaRecorder1Chunks: Array<BlobPart>
+
+  passiveMediaRecorder2: MediaRecorder | null
+  passiveMediaRecorder2StartTime: number | null
+  passiveMediaRecorder2Chunks: Array<BlobPart>
+
   replayVideoURLs: Array<string>
-  replayVideoStartOffets: Array<number>
   currentReplayIndex: number | null
-  chunks: Array<BlobPart>
   debugWireframes: boolean
   debugOverrideHandstandState: boolean
   previewCorner: CornerLabel
@@ -32,6 +41,7 @@ interface Actions {
   handstandCheckerPush: (sample: Sample) => void
   percentOfPositiveSamplesInLastSecond: () => number | null
   getEarliestHandstandSampleTime: () => number | null
+  setNewActiveMediaRecorder: () => void
 }
 
 export const useAppState = create<State & Actions>()((set, get) => ({
@@ -48,9 +58,19 @@ export const useAppState = create<State & Actions>()((set, get) => ({
   recordingStart: null,
   handstandStart: null,
   videoSrcObject: null,
-  mediaRecorder: null,
+
+  activeMediaRecorder: null,
+  activeMediaRecorderChunks: [],
+
+  passiveMediaRecorder1: null,
+  passiveMediaRecorder1StartTime: null,
+  passiveMediaRecorder1Chunks: [],
+
+  passiveMediaRecorder2: null,
+  passiveMediaRecorder2StartTime: null,
+  passiveMediaRecorder2Chunks: [],
+
   replayVideoURLs: [],
-  replayVideoStartOffets: [],
   currentReplayIndex: null,
   chunks: [],
   debugWireframes: false,
@@ -64,7 +84,7 @@ export const useAppState = create<State & Actions>()((set, get) => ({
 
   prepareReplay: () =>
     set((state) => {
-      const chunks = state.chunks
+      const chunks = state.activeMediaRecorderChunks
       if (state.mimeType == null) {
         throw new Error(`mimeType should not be null`)
       }
@@ -74,32 +94,24 @@ export const useAppState = create<State & Actions>()((set, get) => ({
       const newReplayVideoURL = URL.createObjectURL(blob)
       const oldReplayVideoURLs = state.replayVideoURLs
 
-      if (state.handstandStart == null || state.recordingStart == null) {
-        throw new Error(`handstandStart and recordingStart should not be null`)
+      // Reset media recorders
+      if (state.passiveMediaRecorder1?.state === 'recording') {
       }
-      const newReplayVideoStartOffset =
-        state.handstandStart - state.recordingStart - 2000
-      const oldReplayVideoStartOffsets = state.replayVideoStartOffets
 
-      if (state.mediaRecorder == null) {
-        throw new Error(`mediaRecorder should not be null`)
-      }
-      state.mediaRecorder.start()
       return {
         replayVideoURLs: [...oldReplayVideoURLs, newReplayVideoURL],
-        replayVideoStartOffets: [
-          ...oldReplayVideoStartOffsets,
-          newReplayVideoStartOffset,
-        ],
         currentReplayIndex: oldReplayVideoURLs.length,
         recordingStart: Date.now(),
         handstandStart: null,
-        chunks: [],
+        activeMediaRecorder: null,
+        activeMediaRecorderChunks: [],
       }
     }),
   addChunk: (chunk: BlobPart) =>
     set((state) => {
-      return { chunks: [...state.chunks, chunk] }
+      return {
+        activeMediaRecorderChunks: [...state.activeMediaRecorderChunks, chunk],
+      }
     }),
   doesVideoNeedToBeMirrored: () => get().videoSrcObject instanceof MediaStream,
   closeReplay: () => set(() => ({ currentReplayIndex: null })),
@@ -147,6 +159,58 @@ export const useAppState = create<State & Actions>()((set, get) => ({
       return earliestSample.timestamp
     }
   },
+  setNewActiveMediaRecorder: () =>
+    set(() => {
+      const passiveMediaRecorder1 = get().passiveMediaRecorder1
+      const passiveMediaRecorder1StartTime =
+        get().passiveMediaRecorder1StartTime
+      const passiveMediaRecorder1Chunks = get().passiveMediaRecorder1Chunks
+
+      const passiveMediaRecorder2 = get().passiveMediaRecorder2
+      const passiveMediaRecorder2StartTime =
+        get().passiveMediaRecorder2StartTime
+      const passiveMediaRecorder2Chunks = get().passiveMediaRecorder2Chunks
+
+      if (passiveMediaRecorder1StartTime == null) {
+        throw new Error(`passiveMediaRecorder1StartTime should not be null`)
+      }
+
+      if (passiveMediaRecorder2StartTime == null) {
+        if (passiveMediaRecorder2?.state === 'recording') {
+          throw new Error(
+            'passiveMediaRecorder2StartTime should not be null while passiveMediaRecorder2 is recording',
+          )
+        }
+        passiveMediaRecorder2?.stop()
+        return {
+          activeMediaRecorder: passiveMediaRecorder1,
+          activeMediaRecorderChunks: passiveMediaRecorder1Chunks,
+        }
+      } else {
+        if (passiveMediaRecorder1StartTime < passiveMediaRecorder2StartTime) {
+          if (passiveMediaRecorder2?.state === 'recording') {
+            passiveMediaRecorder2.stop()
+          } else {
+            throw new Error('passiveMediaRecorder2 should have been recording')
+          }
+          return {
+            activeMediaRecorder: passiveMediaRecorder1,
+            activeMediaRecorderChunks: passiveMediaRecorder1Chunks,
+          }
+        } else {
+          console.log(passiveMediaRecorder1?.state)
+          if (passiveMediaRecorder1?.state === 'recording') {
+            passiveMediaRecorder1.stop()
+          } else {
+            throw new Error('passiveMediaRecorder1 should have been recording')
+          }
+          return {
+            activeMediaRecorder: passiveMediaRecorder2,
+            activeMediaRecorderChunks: passiveMediaRecorder2Chunks,
+          }
+        }
+      }
+    }),
 }))
 
 export interface Dimensions {
