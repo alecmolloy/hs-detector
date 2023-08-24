@@ -114,7 +114,6 @@ export const drawFrame = async (
             )
           }
           // this should only be running once
-          console.log('its running, only once for sure!')
           useAppState.getState().setNewActiveMediaRecorder()
           useAppState.setState({
             isHandstanding: true,
