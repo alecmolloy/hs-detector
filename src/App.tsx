@@ -269,13 +269,17 @@ export default App
 
 /**
  * TODO
- * - give the video player a scrubber
  * - let you download the currently selected video
+ * - replays don't get in the way of the live preview
+ * - add warning for when you're about to leave the page
+ *
  * - replay selector shows the replay videos with them as long as their duration, with their screenshots
  *   all shown in a row. show the time it was taken so its clear when they were taken, along with length
+ * - give the video player a scrubber
  * - find a way to make loading not be block the main thread
  * - review the rerenders
  * - maybe improve perf by limiting number of pose detection calls, not every frame?
+ * - make the videos persist beyond reloads
  */
 
 /**

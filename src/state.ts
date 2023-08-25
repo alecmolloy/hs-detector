@@ -115,7 +115,12 @@ export const useAppState = create<State & Actions>()((set, get) => ({
       return {
         replayVideos: [
           ...oldReplayVideos,
-          replayVideo(replayVideoURL, screenshots, length),
+          replayVideo(
+            replayVideoURL,
+            screenshots,
+            length,
+            state.handstandStart,
+          ),
         ],
         recordingScreenshotURLs: [],
         recordingLastScreenshotTime: null,
@@ -255,16 +260,19 @@ interface ReplayVideo {
   url: string
   screenshots: Array<string>
   length: number
+  startTime: number
 }
 
 function replayVideo(
   url: string,
   screenshots: Array<string>,
   length: number,
+  startTime: number,
 ): ReplayVideo {
   return {
     url,
     screenshots,
     length,
+    startTime,
   }
 }

@@ -39,6 +39,7 @@ export const ReplayPlayer = React.forwardRef<
         src={replayVideos[currentReplayIndex].url}
         controls={false}
         style={{
+          display: 'block',
           transform: doesVideoNeedToBeMirrored ? 'scaleX(-1)' : undefined,
         }}
         loop
@@ -65,23 +66,7 @@ export const ReplayPlayer = React.forwardRef<
       >
         ×
       </div>
-      <img
-        src='./instant-replay.svg'
-        alt='Instant Replay®'
-        style={{
-          width: '35%',
-          color: '#fffa',
-          fontSize: 30,
-          fontStyle: 'italic',
-          position: 'absolute',
-          fontWeight: 800,
-          bottom: 8,
-          ...(previewCorner === 'tl' || previewCorner === 'bl'
-            ? { right: 8 }
-            : { left: 8 }),
-        }}
-      />
-      <ReplayControls />
+      <ReplayControls currentReplayIndex={currentReplayIndex} />
     </div>
   )
 })

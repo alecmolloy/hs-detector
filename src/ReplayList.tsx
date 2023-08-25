@@ -10,14 +10,13 @@ export const ReplayList = () => {
     <div
       style={{
         position: 'fixed',
-        bottom: 0,
-        left: 0,
+        bottom: 16,
+        left: 16,
         display: 'flex',
         overflowX: 'scroll',
         backgroundColor: 'white',
         boxShadow: '0px 0px 10px rgba(0, 0, 0, 0.2)',
         width: 'calc(100% - 32px)',
-        margin: 16,
         borderRadius: 10,
       }}
     >
