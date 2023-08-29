@@ -256,6 +256,13 @@ const App = () => {
     }
   }, [])
 
+  React.useEffect(() => {
+    window.addEventListener('beforeunload', (e) => {
+      e.returnValue = 'Closing this will delete all instant replays.'
+      return 'Closing this will delete all instant replays.'
+    })
+  }, [])
+
   return (
     <div
       style={{
