@@ -6,20 +6,21 @@
 import * as posedetection from '@tensorflow-models/pose-detection'
 import * as tf from '@tensorflow/tfjs'
 import React from 'react'
+import { animated, useTransition } from 'react-spring'
 import { Canvas } from './Canvas'
 import { FileDropzone } from './FileDropzone'
 import { LivePreview } from './LivePreview'
+import { ReplayList } from './ReplayList'
 import { ReplayPlayer } from './ReplayPlayer'
 import { drawFrame } from './drawFrame'
 import { useAppState } from './state'
 import { getCanvasDimensions } from './utils'
-import { ReplayList } from './ReplayList'
 
 navigator.mediaDevices.getUserMedia({
   video: true,
 })
 
-export const DebugMode: boolean = false
+export const DebugMode: boolean = true
 
 const App = () => {
   const livePreviewRef = React.useRef<HTMLVideoElement>(null)
@@ -41,10 +42,27 @@ const App = () => {
 
   const currentReplayIndex = useAppState((s) => s.currentReplayIndex)
 
+  const controlsActiveFor3Seconds = useAppState(
+    (s) => s.controlsActiveFor3Seconds,
+  )
+  const isCursorIsOverControls = useAppState((s) => s.cursorIsOverControls)
+
   const addChunk = useAppState((s) => s.addChunk)
 
   const doesVideoNeedToBeMirrored = useAppState((s) =>
     s.doesVideoNeedToBeMirrored(),
+  )
+
+  const canvasDimensions = useAppState((s) => s.canvasDimensions)
+
+  const replayListTransition = useTransition(
+    currentReplayIndex == null &&
+      (controlsActiveFor3Seconds || isCursorIsOverControls),
+    {
+      from: { opacity: 0 },
+      enter: { opacity: 1, config: { duration: 150 } },
+      leave: { opacity: 0, config: { duration: 0 } },
+    },
   )
 
   React.useEffect(() => {
@@ -217,6 +235,27 @@ const App = () => {
     return () => window.removeEventListener('resize', resize)
   }, [sourceDimensions])
 
+  const mouseTimeoutRef = React.useRef<number | null>(null)
+
+  React.useEffect(() => {
+    const handleMouseMove = () => {
+      if (mouseTimeoutRef.current) {
+        clearTimeout(mouseTimeoutRef.current)
+      }
+      useAppState.setState({ controlsActiveFor3Seconds: true })
+      mouseTimeoutRef.current = window.setTimeout(() => {
+        useAppState.setState({ controlsActiveFor3Seconds: false })
+      }, 3000)
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      if (mouseTimeoutRef.current) {
+        clearTimeout(mouseTimeoutRef.current)
+      }
+    }
+  }, [])
+
   return (
     <div
       style={{
@@ -260,7 +299,25 @@ const App = () => {
       )}
       <FileDropzone />
       <LivePreview ref={livePreviewRef} />
-      <ReplayList />
+      {replayListTransition(
+        (style, isShowing) =>
+          isShowing && (
+            <animated.div
+              style={{
+                ...style,
+                width: `calc(${canvasDimensions.width}px - 32px)`,
+                position: 'absolute',
+                bottom: 13,
+                left: 'calc(50%)',
+                transform: 'translateX(-50%)',
+                paddingLeft: 16,
+                paddingRight: 16,
+              }}
+            >
+              <ReplayList />
+            </animated.div>
+          ),
+      )}
     </div>
   )
 }
@@ -269,9 +326,6 @@ export default App
 
 /**
  * TODO
- * - let you download the currently selected video
- * - replays don't get in the way of the live preview
- * - add warning for when you're about to leave the page
  *
  * - replay selector shows the replay videos with them as long as their duration, with their screenshots
  *   all shown in a row. show the time it was taken so its clear when they were taken, along with length
@@ -280,9 +334,5 @@ export default App
  * - review the rerenders
  * - maybe improve perf by limiting number of pose detection calls, not every frame?
  * - make the videos persist beyond reloads
- */
-
-/**
- * So basically, when we detect that a handstand has been going on for one
- * second, we take a screenshot, and we do so every 3 seconds after that.
+ * - redefine how a handstand works.
  */

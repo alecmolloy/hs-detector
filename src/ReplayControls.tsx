@@ -1,19 +1,32 @@
+import React from 'react'
+import { SpringValue, animated } from 'react-spring'
+import { ReplayList } from './ReplayList'
 import { useAppState } from './state'
 interface ReplayControlsProps {
   currentReplayIndex: number
+  isPlaying: boolean
+  togglePlayPause: () => void
+  style: {
+    opacity: SpringValue<number>
+  }
 }
 
 export const ReplayControls: React.FunctionComponent<ReplayControlsProps> = ({
   currentReplayIndex,
+  isPlaying,
+  togglePlayPause,
+  style,
 }) => {
-  const previewCorner = useAppState((s) => s.previewCorner)
   const replayVideos = useAppState((s) => s.replayVideos)
 
   return (
-    <div
+    <animated.div
+      onMouseEnter={() => useAppState.setState({ cursorIsOverControls: true })}
+      onMouseLeave={() => useAppState.setState({ cursorIsOverControls: false })}
       style={{
+        ...style,
         display: 'flex',
-        gap: 16,
+        gap: 12,
         padding: 16,
         flexDirection: 'column',
         position: 'absolute',
@@ -27,26 +40,28 @@ export const ReplayControls: React.FunctionComponent<ReplayControlsProps> = ({
           backgroundColor: 'white',
           borderRadius: 4,
         }}
-      ></div>
+      />
       <div
         style={{
           display: 'flex',
-          justifyContent:
-            previewCorner === 'tl' || previewCorner === 'bl' ? 'end' : 'start',
           flexDirection: 'row',
-          gap: 16,
+          gap: 8,
+          alignItems: 'center',
+          height: 64,
         }}
       >
         <img
-          src='./instant-replay.svg'
-          alt='Instant Replay®'
-          style={{
-            display: 'block',
-            height: 32,
-          }}
+          width={32}
+          height={32}
+          src={isPlaying ? './play.svg' : 'pause.svg'}
+          alt='play'
+          onClick={togglePlayPause}
         />
+        <ReplayList />
         <img
-          alt='download'
+          height={32}
+          alt='Download current instant replay'
+          title='Download current instant replay'
           onClick={() => {
             const a = document.createElement('a')
             a.href = replayVideos[currentReplayIndex].url
@@ -60,8 +75,17 @@ export const ReplayControls: React.FunctionComponent<ReplayControlsProps> = ({
             cursor: 'pointer',
           }}
         />
+        <img
+          height={32}
+          src='./instant-replay.svg'
+          alt='Instant Replay®'
+          style={{
+            display: 'block',
+            opacity: 0,
+          }}
+        />
       </div>
-    </div>
+    </animated.div>
   )
 }
 

@@ -1,6 +1,11 @@
-import React from 'react'
 import { useAppState } from './state'
 import { formatDuration } from './utils'
+
+const BaseBoxShadow = '0px 0px 10px rgba(0, 0, 0, 0.2)'
+const SelectedBoxShadow = '0 0 0 5px rgb(94, 151, 247)'
+
+const DefaultStateBoxShadow = BaseBoxShadow
+const SelectedStateBoxShadow = [BaseBoxShadow, SelectedBoxShadow].join(', ')
 
 export const ReplayList = () => {
   const replayVideos = useAppState((state) => state.replayVideos)
@@ -9,15 +14,16 @@ export const ReplayList = () => {
   return (
     <div
       style={{
-        position: 'fixed',
-        bottom: 16,
-        left: 16,
-        display: 'flex',
         overflowX: 'scroll',
-        backgroundColor: 'white',
-        boxShadow: '0px 0px 10px rgba(0, 0, 0, 0.2)',
-        width: 'calc(100% - 32px)',
-        borderRadius: 10,
+        width: '100%',
+        flexGrow: 1,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        display: 'flex',
+        flexDirection: 'row-reverse',
+        height: '100%',
+        gap: 16,
+        padding: 8,
       }}
     >
       {replayVideos.map(({ length, screenshots }, index) => (
@@ -25,13 +31,12 @@ export const ReplayList = () => {
           key={index}
           onClick={() => useAppState.setState({ currentReplayIndex: index })}
           style={{
+            flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            margin: 12,
-            marginRight: 3,
-            width: 60,
-            height: 60,
+            width: 54,
+            height: 54,
             borderRadius: 8,
             backgroundImage: `url(${
               screenshots[Math.floor(screenshots.length / 2)]
@@ -42,8 +47,8 @@ export const ReplayList = () => {
             backgroundColor: '#0001',
             boxShadow:
               currentReplayIndex === index
-                ? '0 0 0 5px rgb(94, 151, 247)'
-                : undefined,
+                ? SelectedStateBoxShadow
+                : DefaultStateBoxShadow,
           }}
         >
           <div

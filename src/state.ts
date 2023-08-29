@@ -36,6 +36,8 @@ interface State {
   handstandCheckCounter: number
   isHandstanding: boolean
   triggerReplayPreparationOnNextStop: boolean
+  controlsActiveFor3Seconds: boolean
+  cursorIsOverControls: boolean
 }
 
 interface Actions {
@@ -90,6 +92,8 @@ export const useAppState = create<State & Actions>()((set, get) => ({
   handstandCheckCounter: 0,
   isHandstanding: false,
   triggerReplayPreparationOnNextStop: false,
+  controlsActiveFor3Seconds: false,
+  cursorIsOverControls: false,
 
   prepareReplay: () =>
     set((state) => {
