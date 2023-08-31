@@ -6,12 +6,13 @@ import { isMutableRefObject } from './utils'
 
 interface ReplayPlayerProps {
   currentReplayIndex: number
+  mouseTimeoutRef: React.MutableRefObject<number | null>
 }
 
 export const ReplayPlayer = React.forwardRef<
   HTMLVideoElement,
   ReplayPlayerProps
->(({ currentReplayIndex }, replayVideoRef) => {
+>(({ currentReplayIndex, mouseTimeoutRef }, replayVideoRef) => {
   if (!isMutableRefObject(replayVideoRef)) {
     throw new Error('Improper ref passed to ReplayPlayer component')
   }
@@ -49,10 +50,18 @@ export const ReplayPlayer = React.forwardRef<
   // On mount, make sure controls show for 3 seconds
   React.useEffect(() => {
     useAppState.setState({ controlsActiveFor3Seconds: true })
-    window.setTimeout(() => {
+    if (mouseTimeoutRef.current != null) {
+      window.clearTimeout(mouseTimeoutRef.current)
+    }
+    mouseTimeoutRef.current = window.setTimeout(() => {
       useAppState.setState({ controlsActiveFor3Seconds: false })
-    })
-  }, [])
+    }, 3000)
+    return () => {
+      if (mouseTimeoutRef.current != null) {
+        window.clearTimeout(mouseTimeoutRef.current)
+      }
+    }
+  }, [mouseTimeoutRef])
 
   const controlsTransition = useTransition(
     hasMouseMovedWithinLast3Seconds || isCursorIsOverControls,
@@ -64,14 +73,47 @@ export const ReplayPlayer = React.forwardRef<
   )
 
   React.useEffect(() => {
-    const closeOnEscape = (e: KeyboardEvent) => {
+    const handlePlayerKeyboardShortcuts = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         useAppState.setState({ currentReplayIndex: null })
+      } else if (e.key === ' ') {
+        togglePlayPause()
+      } else if (e.key === 'ArrowLeft') {
+        if (currentReplayIndex > 0) {
+          useAppState.setState({ currentReplayIndex: currentReplayIndex - 1 })
+        }
+      } else if (e.key === 'ArrowRight') {
+        if (currentReplayIndex < replayVideos.length - 1) {
+          useAppState.setState({ currentReplayIndex: currentReplayIndex + 1 })
+        }
+      } else if (e.key === 'ArrowUp') {
+        if (currentReplayIndex > 0) {
+          useAppState.setState({ currentReplayIndex: 0 })
+        }
+      } else if (e.key === 'ArrowDown' || e.key === '0') {
+        if (currentReplayIndex < replayVideos.length - 1) {
+          useAppState.setState({
+            currentReplayIndex: replayVideos.length - 1,
+          })
+        }
+      } else if (
+        e.key === '1' ||
+        e.key === '2' ||
+        e.key === '3' ||
+        e.key === '4' ||
+        e.key === '5' ||
+        e.key === '6' ||
+        e.key === '7' ||
+        e.key === '8' ||
+        e.key === '9'
+      ) {
+        useAppState.setState({ currentReplayIndex: Number(e.key) - 1 })
       }
     }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [])
+    window.addEventListener('keydown', handlePlayerKeyboardShortcuts)
+    return () =>
+      window.removeEventListener('keydown', handlePlayerKeyboardShortcuts)
+  }, [currentReplayIndex, replayVideos.length, togglePlayPause])
 
   return (
     <animated.div
@@ -80,6 +122,11 @@ export const ReplayPlayer = React.forwardRef<
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         ...springs,
       }}
     >
@@ -126,20 +173,10 @@ export const ReplayPlayer = React.forwardRef<
               currentReplayIndex={currentReplayIndex}
               isPlaying={isPlaying}
               togglePlayPause={togglePlayPause}
+              replayVideoRef={replayVideoRef}
             />
           ),
       )}
-      <img
-        height={32}
-        src='./instant-replay.svg'
-        alt='Instant Replay®'
-        style={{
-          display: 'block',
-          position: 'absolute',
-          bottom: 32,
-          right: 16,
-        }}
-      />
     </animated.div>
   )
 })

@@ -1,6 +1,6 @@
 import React from 'react'
 import { SpringValue, animated } from 'react-spring'
-import { ReplayList } from './ReplayList'
+import { ReplaysTimeline } from './ReplaysTimeline'
 import { useAppState } from './state'
 interface ReplayControlsProps {
   currentReplayIndex: number
@@ -9,13 +9,17 @@ interface ReplayControlsProps {
   style: {
     opacity: SpringValue<number>
   }
+  replayVideoRef: React.MutableRefObject<HTMLVideoElement | null>
 }
+
+export const ControlsPadding = 16
 
 export const ReplayControls: React.FunctionComponent<ReplayControlsProps> = ({
   currentReplayIndex,
   isPlaying,
   togglePlayPause,
   style,
+  replayVideoRef,
 }) => {
   const replayVideos = useAppState((s) => s.replayVideos)
 
@@ -26,39 +30,40 @@ export const ReplayControls: React.FunctionComponent<ReplayControlsProps> = ({
       style={{
         ...style,
         display: 'flex',
-        gap: 12,
-        padding: 16,
+        padding: ControlsPadding,
         flexDirection: 'column',
         position: 'absolute',
         bottom: 0,
-        width: 'calc(100% - 32px)',
+        width: `calc(100% - ${ControlsPadding * 2}px)`,
+        overflow: 'hidden',
       }}
     >
       <div
         style={{
-          height: 8,
-          backgroundColor: 'white',
-          borderRadius: 4,
-        }}
-      />
-      <div
-        style={{
           display: 'flex',
           flexDirection: 'row',
-          gap: 8,
           alignItems: 'center',
           height: 64,
+          gap: 16,
+          boxSizing: 'border-box',
+          width: '100%',
         }}
       >
         <img
           width={32}
           height={32}
           src={isPlaying ? './play.svg' : 'pause.svg'}
+          style={{
+            display: 'block',
+            cursor: 'pointer',
+            flexShrink: 0,
+            width: 32,
+          }}
           alt='play'
           onClick={togglePlayPause}
         />
-        <ReplayList />
         <img
+          width={32}
           height={32}
           alt='Download current instant replay'
           title='Download current instant replay'
@@ -71,17 +76,21 @@ export const ReplayControls: React.FunctionComponent<ReplayControlsProps> = ({
           src='./download.svg'
           style={{
             display: 'block',
-            height: 32,
             cursor: 'pointer',
+            flexShrink: 0,
+            width: 32,
           }}
         />
+        <ReplaysTimeline replayVideoRef={replayVideoRef} />
         <img
+          width={96}
           height={32}
-          src='./instant-replay.svg'
+          src='./instant-replay-small.svg'
           alt='Instant Replay®'
           style={{
             display: 'block',
-            opacity: 0,
+            flexShrink: 0,
+            width: 96,
           }}
         />
       </div>

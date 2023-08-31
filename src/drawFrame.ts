@@ -72,7 +72,9 @@ export const drawFrame = async (
       useAppState.getState().recordingLastScreenshotTime
 
     if (percentOfPositiveSamplesInLastSecond == null) {
-      console.log('not enough samples to make judgement')
+      // not enough samples to make a judgement, happens at the beginning
+      // of the recording, but also if framerate is too low. could
+      // possibly mean we need a warning.
     } else {
       const wasHandstanding = useAppState.getState().isHandstanding
       if (wasHandstanding) {
@@ -82,7 +84,7 @@ export const drawFrame = async (
               recordingScreenshotURLs: [canvasElement.toDataURL()],
               recordingLastScreenshotTime: Date.now(),
             })
-          } else if (recordingLastScreenshotTime + 1000 < Date.now()) {
+          } else if (recordingLastScreenshotTime + 480 < Date.now()) {
             useAppState.setState({
               recordingScreenshotURLs: [
                 ...useAppState.getState().recordingScreenshotURLs,

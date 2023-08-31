@@ -41,7 +41,7 @@ export const CornerSnapper: React.FC<CornerSnapperProps> = ({
   const [spring, api] = useSpring(() => ({
     x: cornerPadding,
     y: cornerPadding,
-    onRest: (e) => {
+    onRest: () => {
       const closestCorner = getClosestCornerCoordinates(0, 0)
       let closestCornerLabel: CornerLabel | null = null
       const corners = getCorners(videoDimensions)

@@ -10,8 +10,8 @@ import { animated, useTransition } from 'react-spring'
 import { Canvas } from './Canvas'
 import { FileDropzone } from './FileDropzone'
 import { LivePreview } from './LivePreview'
-import { ReplayList } from './ReplayList'
 import { ReplayPlayer } from './ReplayPlayer'
+import { ReplaysTimeline } from './ReplaysTimeline'
 import { drawFrame } from './drawFrame'
 import { useAppState } from './state'
 import { getCanvasDimensions } from './utils'
@@ -53,9 +53,7 @@ const App = () => {
     s.doesVideoNeedToBeMirrored(),
   )
 
-  const canvasDimensions = useAppState((s) => s.canvasDimensions)
-
-  const replayListTransition = useTransition(
+  const replaysTimelineTransition = useTransition(
     currentReplayIndex == null &&
       (controlsActiveFor3Seconds || isCursorIsOverControls),
     {
@@ -257,10 +255,12 @@ const App = () => {
   }, [])
 
   React.useEffect(() => {
-    window.addEventListener('beforeunload', (e) => {
-      e.returnValue = 'Closing this will delete all instant replays.'
-      return 'Closing this will delete all instant replays.'
-    })
+    if (!DebugMode) {
+      window.addEventListener('beforeunload', (e) => {
+        e.returnValue = 'Closing this will delete all instant replays.'
+        return 'Closing this will delete all instant replays.'
+      })
+    }
   }, [])
 
   return (
@@ -290,6 +290,7 @@ const App = () => {
       {currentReplayIndex != null && (
         <ReplayPlayer
           ref={replayVideoRef}
+          mouseTimeoutRef={mouseTimeoutRef}
           currentReplayIndex={currentReplayIndex}
         />
       )}
@@ -306,22 +307,22 @@ const App = () => {
       )}
       <FileDropzone />
       <LivePreview ref={livePreviewRef} />
-      {replayListTransition(
+      {replaysTimelineTransition(
         (style, isShowing) =>
           isShowing && (
             <animated.div
               style={{
                 ...style,
-                width: `calc(${canvasDimensions.width}px - 32px)`,
+                boxSizing: 'border-box',
+                width: '100%',
                 position: 'absolute',
                 bottom: 13,
-                left: 'calc(50%)',
-                transform: 'translateX(-50%)',
+                left: 0,
                 paddingLeft: 16,
                 paddingRight: 16,
               }}
             >
-              <ReplayList />
+              <ReplaysTimeline replayVideoRef={replayVideoRef} />
             </animated.div>
           ),
       )}
@@ -334,12 +335,15 @@ export default App
 /**
  * TODO
  *
+ * - Progressive Web App: lets you keep your videos in memory
  * - replay selector shows the replay videos with them as long as their duration, with their screenshots
  *   all shown in a row. show the time it was taken so its clear when they were taken, along with length
- * - give the video player a scrubber
- * - find a way to make loading not be block the main thread
- * - review the rerenders
- * - maybe improve perf by limiting number of pose detection calls, not every frame?
- * - make the videos persist beyond reloads
+ * - mobile-friendly vertical UI that shows the timeline on the bottom and controls just above
+ * - refactor ReplayCartouche so it doesn't have the scrubbing logic for all the cartouches
  * - redefine how a handstand works.
+ * - make getCurrentlyPlayingCartoucheWidth use the ref value + useLayoutEffect so we get the correct size.
+ * - make the currently playing cartouche actually centred
+ * - review why the playback controls have 3s timeout rerender issues + why they don't appear when a new replay is created
+ * - let users scroll through the timeline with touch/wheel
+ * - find a way to make loading not be block the main thread
  */

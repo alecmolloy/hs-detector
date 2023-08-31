@@ -109,7 +109,7 @@ export const useAppState = create<State & Actions>()((set, get) => ({
       if (state.handstandStart == null || state.handstandEnd == null) {
         throw new Error(`handstandStart and handstandEnd should not be null`)
       }
-      const length = state.handstandEnd - state.handstandStart
+      const handstandLength = state.handstandEnd - state.handstandStart
       const oldReplayVideos = state.replayVideos
 
       // Reset media recorders
@@ -122,7 +122,7 @@ export const useAppState = create<State & Actions>()((set, get) => ({
           replayVideo(
             replayVideoURL,
             screenshots,
-            length,
+            handstandLength,
             state.handstandStart,
           ),
         ],
@@ -260,23 +260,24 @@ export function handstandFrameSample(
   return { timestamp, isHandstand }
 }
 
-interface ReplayVideo {
+export interface ReplayVideo {
   url: string
   screenshots: Array<string>
-  length: number
+  /** Length in ms */
+  handstandLength: number
   startTime: number
 }
 
 function replayVideo(
   url: string,
   screenshots: Array<string>,
-  length: number,
+  handstandLength: number,
   startTime: number,
 ): ReplayVideo {
   return {
     url,
     screenshots,
-    length,
+    handstandLength,
     startTime,
   }
 }

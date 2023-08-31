@@ -57,7 +57,8 @@ export const LivePreview = React.forwardRef<HTMLVideoElement>((_, ref) => {
         style={{
           display: 'flex',
           pointerEvents: 'none',
-          backgroundColor: 'rgba(0, 0, 0, 0.25)',
+          backgroundColor: '#0004',
+          backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
         }}
       >
